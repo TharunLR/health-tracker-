@@ -74,7 +74,7 @@ Open a second terminal window in the project root directory (`c:\Users\vinay\hea
 The application features 5 segregated navigation sections:
 
 1. 🏠 **Home:** Daily calorie counter, macro progress (Carbs, Protein, Fat), Calz Mascot, and weekday calendar.
-2. ⚡ **Fasting & Activity:** Daily movement & steps bar graph (`WeeklyStepsGraphCard`), hourly activity, and workout summary.
+2. 🏃 **Activity:** Daily movement & steps bar graph (`WeeklyStepsGraphCard`), hourly activity, and workout summary.
 3. ✨ **Calz Coach (AI Scanner):** AI Meal Scanner page using computer vision for food recognition and nutrition extraction.
 4. ⚖️ **Weight Progress:** Weight trend line chart, date-range goal tracking, and log entries.
 5. 💧 **Wellness & Water:** Water & Hydration Tracker with quick-add buttons (`+200ml`, `+500ml`, `+1.0L`) and nutrition analytics breakdown chart.

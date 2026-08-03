@@ -2354,8 +2354,8 @@ class DashboardNavigationBar extends StatelessWidget {
               onTap: onHomeTap,
             ),
             _CalzNavItem(
-              icon: Icons.restaurant_rounded,
-              label: 'Fasting',
+              icon: Icons.directions_run_rounded,
+              label: 'Activity',
               active: currentIndex == 1,
               onTap: onFavoritesTap,
             ),

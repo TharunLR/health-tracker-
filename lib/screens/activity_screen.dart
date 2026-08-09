@@ -235,93 +235,92 @@ class _HourlyBarChart extends StatelessWidget {
 
   final List<int> values;
 
+  String _formatHourLabel(int hour) {
+    if (hour == 0) return '12a';
+    if (hour == 12) return '12p';
+    if (hour < 12) return '${hour}a';
+    return '${hour - 12}p';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final currentHour = DateTime.now().hour;
     final maxValue = values.fold<int>(0, (max, value) {
       return value > max ? value : max;
     });
-    final safeMax = maxValue <= 0 ? 1.0 : maxValue.toDouble();
-    const minHeight = 6.0;
-    const maxHeight = 110.0;
-    final labelStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
-      color: const Color(0xFF8A8580),
-      fontSize: 9,
-      fontWeight: FontWeight.w600,
-    );
+    final safeMax = maxValue <= 0 ? 100.0 : maxValue.toDouble();
+    const minHeight = 8.0;
+    const maxHeight = 95.0;
 
     return SizedBox(
-      height: 160,
-      child: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: List.generate(values.length, (index) {
-                  final value = values[index].toDouble();
-                  final height =
-                      minHeight + (value / safeMax) * (maxHeight - minHeight);
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: SizedBox(
-                      width: 24,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          SizedBox(
-                            height: 14,
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text(
-                                value.toInt().toString(),
-                                style: labelStyle,
-                              ),
-                            ),
+      height: 150,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: List.generate(24, (index) {
+            final value = (index < values.length) ? values[index].toDouble() : 0.0;
+            final isCurrentHour = index == currentHour;
+            final height = value <= 0
+                ? minHeight
+                : minHeight + (value / safeMax) * (maxHeight - minHeight);
+
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 3),
+              child: SizedBox(
+                width: 26,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    if (value > 0)
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          value.toInt().toString(),
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: isCurrentHour
+                                ? const Color(0xFFFF6A1B)
+                                : const Color(0xFF8A8580),
                           ),
-                          const SizedBox(height: 6),
-                          Container(
-                            width: 12,
-                            height: height,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFF6A1B),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                          ),
-                        ],
+                        ),
+                      )
+                    else
+                      const SizedBox(height: 12),
+                    const SizedBox(height: 4),
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      width: isCurrentHour ? 14 : 10,
+                      height: height,
+                      decoration: BoxDecoration(
+                        color: isCurrentHour
+                            ? const Color(0xFFFF6A1B)
+                            : (value > 0
+                                ? const Color(0xFF2F80ED)
+                                : const Color(0xFFE2DDD5)),
+                        borderRadius: BorderRadius.circular(999),
                       ),
                     ),
-                  );
-                }),
+                    const SizedBox(height: 6),
+                    Text(
+                      _formatHourLabel(index),
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: isCurrentHour ? FontWeight.bold : FontWeight.normal,
+                        color: isCurrentHour
+                            ? const Color(0xFFFF6A1B)
+                            : const Color(0xFF8A8580),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _HourAxisLabels(),
-        ],
+            );
+          }),
+        ),
       ),
-    );
-  }
-}
-
-class _HourAxisLabels extends StatelessWidget {
-  const _HourAxisLabels();
-
-  @override
-  Widget build(BuildContext context) {
-    const labels = ['12am', '4am', '8am', '12pm', '4pm', '8pm', '11pm'];
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: labels
-          .map(
-            (label) => Text(
-              label,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: const Color(0xFF8A8580),
-              ),
-            ),
-          )
-          .toList(),
     );
   }
 }

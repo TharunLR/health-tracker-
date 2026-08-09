@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../app_routes.dart';
 import '../services/auth_service.dart';
 import '../services/dashboard_tab_controller.dart';
+import '../services/esp32_health_band_service.dart';
 import '../services/steps_service.dart';
 import 'activity_screen.dart';
 import 'food_scanner_screen.dart';
@@ -24,6 +25,8 @@ class DashboardShell extends StatefulWidget {
 class _DashboardShellState extends State<DashboardShell>
     with WidgetsBindingObserver {
   final AuthService _authService = AuthService();
+  StreamSubscription<HealthBandData>? _bandSub;
+  bool? _lastConnectionState;
 
   final List<Widget> _tabs = const [
     HomeScreen(showBottomNav: false),
@@ -40,10 +43,53 @@ class _DashboardShellState extends State<DashboardShell>
     final safeIndex = widget.initialIndex.clamp(0, _tabs.length - 1);
     DashboardTabController.setIndex(safeIndex);
     unawaited(StepsService.instance.start());
+
+    // Show initial popup message when app opens
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final isConnected = ESP32HealthBandService.instance.currentData.isConnected;
+      _lastConnectionState = isConnected;
+      _showBandStatusToast(isConnected);
+    });
+
+    // Listen for state changes
+    _bandSub = ESP32HealthBandService.instance.dataStream.listen((data) {
+      if (_lastConnectionState != data.isConnected) {
+        _lastConnectionState = data.isConnected;
+        _showBandStatusToast(data.isConnected);
+      }
+    });
+  }
+
+  void _showBandStatusToast(bool isConnected) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(
+                isConnected ? Icons.check_circle_rounded : Icons.watch_off_rounded,
+                color: Colors.white,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                isConnected ? 'Band Connected' : 'Band Disconnected',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          backgroundColor: isConnected ? Colors.teal.shade800 : Colors.blueGrey.shade900,
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
   }
 
   @override
   void dispose() {
+    _bandSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -52,6 +98,8 @@ class _DashboardShellState extends State<DashboardShell>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(StepsService.instance.refreshFromStorage());
+      final isConnected = ESP32HealthBandService.instance.currentData.isConnected;
+      _showBandStatusToast(isConnected);
     }
   }
 

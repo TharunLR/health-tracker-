@@ -10,20 +10,34 @@ class WeeklyStepsGraphCard extends StatefulWidget {
 }
 
 class _WeeklyStepsGraphCardState extends State<WeeklyStepsGraphCard> {
-  int _selectedDayIndex = 6;
+  late int _selectedDayIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDayIndex = (DateTime.now().weekday - 1) % 7;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<WeeklyStepsSnapshot>(
-      stream: StepsService.instance.weeklyStepsStream,
-      builder: (context, snapshot) {
-        final weeklyData = snapshot.data;
-        final currentWeekList = weeklyData?.currentWeekSteps;
-        final int currentSteps = (currentWeekList != null && currentWeekList.isNotEmpty)
-            ? currentWeekList.last
-            : 4580;
-        const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-        final List<int> daySteps = <int>[6200, 7800, 5400, 8900, 10200, 4300, currentSteps];
+    return StreamBuilder<StepsSnapshot>(
+      stream: StepsService.instance.stepsStream,
+      builder: (context, stepsSnapshot) {
+        final stepsToday = stepsSnapshot.data?.stepsToday ?? 0;
+
+        return StreamBuilder<WeeklyStepsSnapshot>(
+          stream: StepsService.instance.weeklyStepsStream,
+          builder: (context, snapshot) {
+            final weeklyData = snapshot.data;
+            final currentWeekList = weeklyData?.currentWeekSteps;
+            const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+            final List<int> daySteps = (currentWeekList != null && currentWeekList.length == 7)
+                ? List<int>.from(currentWeekList)
+                : <int>[0, 0, 0, 0, 0, 0, stepsToday];
+            if (daySteps.isNotEmpty) {
+              daySteps[daySteps.length - 1] = stepsToday;
+            }
         const int stepGoal = 8000;
 
         int maxStep = 0;
@@ -210,6 +224,7 @@ class _WeeklyStepsGraphCardState extends State<WeeklyStepsGraphCard> {
                                       : [],
                                 ),
                               ),
+                               const SizedBox(height: 8),
                               const SizedBox(height: 8),
                               Text(
                                 dayNames[index],
@@ -268,6 +283,8 @@ class _WeeklyStepsGraphCardState extends State<WeeklyStepsGraphCard> {
               ),
             ],
           ),
+        );
+          },
         );
       },
     );

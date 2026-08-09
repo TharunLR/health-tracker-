@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -23,15 +24,50 @@ class BackgroundStepService : Service(), SensorEventListener {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        startForeground(notificationId, buildNotification())
+        startForegroundWithHealthType()
 
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
         stepCounterSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
     }
 
+    private fun startForegroundWithHealthType() {
+        val notification = buildNotification()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                notificationId,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH,
+            )
+        } else {
+            startForeground(notificationId, notification)
+        }
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         registerSensorListener()
         return START_STICKY
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        if (!BackgroundStepStore.isBackgroundEnabled(this)) {
+            return
+        }
+        val restartIntent = Intent(applicationContext, BackgroundStepService::class.java).apply {
+            setPackage(packageName)
+        }
+        val pendingIntent = PendingIntent.getService(
+            applicationContext,
+            1,
+            restartIntent,
+            PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as? android.app.AlarmManager
+        alarmManager?.set(
+            android.app.AlarmManager.RTC,
+            System.currentTimeMillis() + 1000,
+            pendingIntent,
+        )
     }
 
     override fun onDestroy() {

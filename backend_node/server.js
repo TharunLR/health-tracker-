@@ -26,7 +26,7 @@ app.get("/", (req, res) => {
   });
 });
 
-app.post("/analyze-meal", upload.single("image"), async (req, res) => {
+app.post("/analyze-meal", upload.any(), async (req, res) => {
   if (!process.env.ROBOFLOW_API_KEY) {
     return res.status(500).json({
       success: false,
@@ -34,12 +34,13 @@ app.post("/analyze-meal", upload.single("image"), async (req, res) => {
     });
   }
 
-  if (!req.file) {
+  const uploadedFile = req.file || (req.files && req.files[0]);
+  if (!uploadedFile) {
     return res.status(400).json({ success: false, error: "No image uploaded" });
   }
 
   try {
-    const imageBuffer = fs.readFileSync(req.file.path);
+    const imageBuffer = fs.readFileSync(uploadedFile.path);
     const base64Image = imageBuffer.toString("base64");
 
     const response = await fetch(
@@ -94,9 +95,9 @@ app.post("/analyze-meal", upload.single("image"), async (req, res) => {
       error: err.message
     });
   } finally {
-    if (req.file && fs.existsSync(req.file.path)) {
+    if (uploadedFile && fs.existsSync(uploadedFile.path)) {
       try {
-        fs.unlinkSync(req.file.path);
+        fs.unlinkSync(uploadedFile.path);
       } catch (e) {
         console.error("Failed to delete temp file:", e);
       }

@@ -17,79 +17,87 @@ class RoboflowNutritionService {
     String filename = 'meal.jpg',
     double confidenceThreshold = 0.5,
   }) async {
-    try {
-      final uri = Uri.parse(backendUrl);
-      final request = http.MultipartRequest('POST', uri);
+    final candidateUrls = [
+      backendUrl,
+      if (backendUrl.contains('127.0.0.1'))
+        backendUrl.replaceFirst('127.0.0.1', '10.0.2.2'),
+      if (backendUrl.contains('localhost'))
+        backendUrl.replaceFirst('localhost', '10.0.2.2'),
+    ].toSet().toList();
 
-      // Support both FastAPI ('file') and Node.js proxy ('image') multipart fields
-      request.files.add(
-        http.MultipartFile.fromBytes(
-          'file',
-          imageBytes,
-          filename: filename,
-        ),
-      );
-      request.files.add(
-        http.MultipartFile.fromBytes(
-          'image',
-          imageBytes,
-          filename: filename,
-        ),
-      );
+    Object? lastError;
 
-      // Handle Cloud Run cold starts with a 30 second timeout
-      final streamedResponse = await request.send().timeout(const Duration(seconds: 30));
-      final response = await http.Response.fromStream(streamedResponse);
+    for (final targetUrl in candidateUrls) {
+      try {
+        final uri = Uri.parse(targetUrl);
+        final request = http.MultipartRequest('POST', uri);
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final result = IndianMealResult.fromMap(data);
-
-        // Apply confidence threshold filtering if items exist
-        if (result.items.isNotEmpty) {
-          final filteredItems = result.items
-              .where((item) => (item.confidence ?? 1.0) >= confidenceThreshold)
-              .toList();
-
-          if (filteredItems.length != result.items.length) {
-            return IndianMealResult(
-              success: result.success,
-              totals: result.totals,
-              items: filteredItems,
-              scaleReference: result.scaleReference,
-              referenceObject: result.referenceObject,
-              disclaimer: result.disclaimer,
-              error: result.error,
-            );
-          }
-        }
-
-        return result;
-      } else {
-        return IndianMealResult(
-          success: false,
-          totals: const IndianMealTotals(
-            totalCaloriesKcal: 0,
-            totalProteinG: 0,
-            totalCarbsG: 0,
-            totalFatG: 0,
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'image',
+            imageBytes,
+            filename: filename,
           ),
-          items: const [],
-          error: 'Server Error (${response.statusCode}): ${response.body}',
         );
+
+        final streamedResponse =
+            await request.send().timeout(const Duration(seconds: 25));
+        final response = await http.Response.fromStream(streamedResponse);
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body) as Map<String, dynamic>;
+          final result = IndianMealResult.fromMap(data);
+
+          if (result.items.isNotEmpty) {
+            final filteredItems = result.items
+                .where((item) => (item.confidence ?? 1.0) >= confidenceThreshold)
+                .toList();
+
+            if (filteredItems.length != result.items.length) {
+              return IndianMealResult(
+                success: result.success,
+                totals: result.totals,
+                items: filteredItems,
+                scaleReference: result.scaleReference,
+                referenceObject: result.referenceObject,
+                disclaimer: result.disclaimer,
+                error: result.error,
+              );
+            }
+          }
+
+          return result;
+        } else {
+          return IndianMealResult(
+            success: false,
+            totals: const IndianMealTotals(
+              totalCaloriesKcal: 0,
+              totalProteinG: 0,
+              totalCarbsG: 0,
+              totalFatG: 0,
+            ),
+            items: const [],
+            error: 'Server Error (${response.statusCode}): ${response.body}',
+          );
+        }
+      } catch (e) {
+        lastError = e;
       }
-    } catch (e) {
-      return IndianMealResult(
-        success: false,
-        totals: const IndianMealTotals(
-          totalCaloriesKcal: 0,
-          totalProteinG: 0,
-          totalCarbsG: 0,
-          totalFatG: 0,
-        ),
-        items: const [],
-        error: 'Network / API Error: $e',
-      );
     }
+
+    return IndianMealResult(
+      success: false,
+      totals: const IndianMealTotals(
+        totalCaloriesKcal: 0,
+        totalProteinG: 0,
+        totalCarbsG: 0,
+        totalFatG: 0,
+      ),
+      items: const [],
+      error:
+          'Backend connection failed. Ensure Node backend is running (cd backend_node && node server.js).\n'
+          'For physical Android devices: run "adb reverse tcp:3000 tcp:3000".\n'
+          'Details: $lastError',
+    );
   }
 }

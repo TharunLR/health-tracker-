@@ -68,6 +68,12 @@ object BackgroundStepStore {
         hourlySteps[hourOfDay] =
             (hourlySteps[hourOfDay] + applyCalibration(rawDelta, calibration)).coerceIn(0, 999999)
 
+        val currentSum = hourlySteps.sum()
+        if (stepsToday > currentSum) {
+            hourlySteps[hourOfDay] =
+                (hourlySteps[hourOfDay] + (stepsToday - currentSum)).coerceIn(0, 999999)
+        }
+
         val dailyTotals = loadDailyTotals(readStringLike(prefs, dailyTotalsKey))
         dailyTotals[eventDate] = stepsToday
         pruneDailyTotals(dailyTotals, eventDate)

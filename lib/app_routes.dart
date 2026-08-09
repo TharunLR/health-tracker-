@@ -9,4 +9,5 @@ abstract final class AppRoutes {
   static const stats = '/stats';
   static const foodLog = '/food-log';
   static const home = '/home';
+  static const healthBand = '/health-band';
 }

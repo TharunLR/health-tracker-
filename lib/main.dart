@@ -10,6 +10,7 @@ import 'screens/splash_screen.dart';
 import 'screens/welcome_screen.dart';
 import 'screens/activity_details_screen.dart';
 import 'screens/dashboard_shell.dart';
+import 'screens/health_band_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -53,6 +54,7 @@ class MyApp extends StatelessWidget {
         AppRoutes.foodLog: (context) => const DashboardShell(initialIndex: 2),
         AppRoutes.stats: (context) => const DashboardShell(initialIndex: 3),
         AppRoutes.home: (context) => const DashboardShell(),
+        AppRoutes.healthBand: (context) => const HealthBandScreen(),
       },
     );
   }

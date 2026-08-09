@@ -13,6 +13,7 @@ class BackgroundStepBootReceiver : BroadcastReceiver() {
         val action = intent.action ?: return
         if (
             action != Intent.ACTION_BOOT_COMPLETED &&
+            action != Intent.ACTION_LOCKED_BOOT_COMPLETED &&
             action != Intent.ACTION_MY_PACKAGE_REPLACED
         ) {
             return

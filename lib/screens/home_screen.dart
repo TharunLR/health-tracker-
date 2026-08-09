@@ -17,6 +17,8 @@ import '../services/steps_service.dart';
 import '../services/weight_service.dart';
 import '../services/workout_service.dart';
 import '../widgets/calz_mascot_widget.dart';
+import '../widgets/weekly_steps_graph_card.dart';
+import '../widgets/health_band_card.dart';
 import 'food_scanner_screen.dart';
 
 const List<BoxShadow> _softCardShadow = [
@@ -130,25 +132,116 @@ class HomeScreen extends StatelessWidget {
           : null,
     );
   }
+}
 
-  String _displayName(UserProfile? profile, User user) {
-    final name = profile?.name?.trim();
-    if (name != null && name.isNotEmpty) {
-      return name;
-    }
+Future<void> showUserProfileSheet(
+  BuildContext context, {
+  UserProfile? profile,
+}) async {
+  final user = FirebaseAuth.instance.currentUser;
+  final effectiveProfile = profile ??
+      (user != null ? await AuthService().getUserProfile(user.uid) : null);
 
-    final email = user.email ?? profile?.email ?? '';
-    if (email.isEmpty || !email.contains('@')) {
-      return 'there';
-    }
+  final name = (effectiveProfile?.name?.trim().isNotEmpty ?? false)
+      ? effectiveProfile!.name!
+      : (user?.displayName?.trim().isNotEmpty ?? false)
+          ? user!.displayName!
+          : (user?.email != null && user!.email!.contains('@'))
+              ? user.email!.split('@').first
+              : 'User';
 
-    return email.split('@').first;
+  final email = (effectiveProfile?.email.trim().isNotEmpty ?? false)
+      ? effectiveProfile!.email.trim()
+      : (user?.email ?? 'No email saved.');
+
+  final dashboard = DashboardSnapshot.fromProfile(
+    fallbackName: name,
+    fallbackEmail: email,
+    profile: effectiveProfile,
+  );
+
+  if (!context.mounted) return;
+
+  _DashboardHeader(dashboard: dashboard, profile: effectiveProfile)
+      ._showProfileSheet(context);
+}
+
+class _HomeProfileAvatar extends StatelessWidget {
+  const _HomeProfileAvatar();
+
+  String _getInitials(String name) {
+    final parts =
+        name.trim().split(RegExp(r'\s+')).where((part) => part.isNotEmpty);
+    final initials = parts.take(2).map((part) => part[0]).join();
+    return initials.isEmpty ? 'U' : initials.toUpperCase();
   }
 
-  String _emailAddress(UserProfile? profile, User user) {
-    final storedEmail = profile?.email.trim() ?? '';
-    final email = storedEmail.isNotEmpty ? storedEmail : (user.email ?? '');
-    return email.isEmpty ? 'No email saved yet.' : email;
+  @override
+  Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return GestureDetector(
+        onTap: () => showUserProfileSheet(context),
+        child: Container(
+          width: 48,
+          height: 48,
+          decoration: const BoxDecoration(
+            color: Color(0xFFF0EFEA),
+            shape: BoxShape.circle,
+          ),
+          alignment: Alignment.center,
+          child: const Icon(
+            Icons.person_outline_rounded,
+            color: Color(0xFFFF6A1B),
+            size: 26,
+          ),
+        ),
+      );
+    }
+
+    return StreamBuilder<UserProfile?>(
+      stream: AuthService().watchUserProfile(user.uid),
+      builder: (context, snapshot) {
+        final profile = snapshot.data;
+        final name = (profile?.name?.trim().isNotEmpty ?? false)
+            ? profile!.name!
+            : (user.displayName?.trim().isNotEmpty ?? false)
+                ? user.displayName!
+                : (user.email != null && user.email!.contains('@'))
+                    ? user.email!.split('@').first
+                    : 'User';
+        final initials = _getInitials(name);
+
+        return InkWell(
+          onTap: () => showUserProfileSheet(context, profile: profile),
+          borderRadius: BorderRadius.circular(24),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              _ProfileAvatar(
+                initials: initials,
+                photoUrl: profile?.photoUrl,
+                size: 48,
+                radius: 24,
+              ),
+              Positioned(
+                top: 2,
+                right: 2,
+                child: Container(
+                  width: 12,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF4CAF50),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFFF9F9F8), width: 2),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }
 
@@ -2742,17 +2835,63 @@ class CalzHomeScreenView extends StatefulWidget {
 }
 
 class _CalzHomeScreenViewState extends State<CalzHomeScreenView> {
+  late DateTime _now;
   int _selectedDayIndex = 0;
 
-  final List<Map<String, dynamic>> _weekDays = const [
-    {'day': 'SUN', 'num': '2', 'target': '2327', 'active': true},
-    {'day': 'MON', 'num': '3', 'target': '2327', 'active': false},
-    {'day': 'TUE', 'num': '4', 'target': '2327', 'active': false},
-    {'day': 'WED', 'num': '5', 'target': '2327', 'active': false},
-    {'day': 'THU', 'num': '6', 'target': '2327', 'active': false},
-    {'day': 'FRI', 'num': '7', 'target': '2827', 'active': false},
-    {'day': 'SAT', 'num': '8', 'target': '2827', 'active': false},
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _now = DateTime.now();
+    _selectedDayIndex = _now.weekday % 7;
+  }
+
+  List<Map<String, dynamic>> get _dynamicWeekDays {
+    final sunday = _now.subtract(Duration(days: _now.weekday % 7));
+    const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+    final todayIndex = _now.weekday % 7;
+
+    return List.generate(7, (index) {
+      final dayDate = sunday.add(Duration(days: index));
+      return {
+        'day': dayNames[index],
+        'num': dayDate.day.toString(),
+        'target': '2327',
+        'active': index == _selectedDayIndex,
+        'isToday': index == todayIndex,
+      };
+    });
+  }
+
+  String _monthName(int month) {
+    const months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December'
+    ];
+    return months[month - 1];
+  }
+
+  String _fullDayName(int weekday) {
+    const days = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday'
+    ];
+    return days[weekday - 1];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2779,6 +2918,8 @@ class _CalzHomeScreenViewState extends State<CalzHomeScreenView> {
         const proteinTarget = 175;
         const fatTarget = 142;
 
+        final weekDays = _dynamicWeekDays;
+
         return Scaffold(
           backgroundColor: const Color(0xFFF9F9F8),
           body: SafeArea(
@@ -2791,61 +2932,32 @@ class _CalzHomeScreenViewState extends State<CalzHomeScreenView> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          Container(
-                            width: 48,
-                            height: 48,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFF0EFEA),
-                              shape: BoxShape.circle,
-                            ),
-                            alignment: Alignment.center,
-                            child: const Icon(
-                              Icons.pets_rounded,
-                              color: Color(0xFFB0BEC5),
-                              size: 24,
-                            ),
-                          ),
-                          Positioned(
-                            top: 2,
-                            right: 2,
-                            child: Container(
-                              width: 12,
-                              height: 12,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF4CAF50),
-                                shape: BoxShape.circle,
-                                border: Border.all(color: const Color(0xFFF9F9F8), width: 2),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                      const _HomeProfileAvatar(),
                       Column(
-                        children: const [
+                        children: [
                           Text(
-                            "August '26",
-                            style: TextStyle(
+                            "${_monthName(_now.month)} '${_now.year.toString().substring(2)}",
+                            style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.w800,
                               color: Color(0xFF111111),
                             ),
                           ),
-                          SizedBox(height: 2),
+                          const SizedBox(height: 2),
                           Text(
-                            'Sunday',
-                            style: TextStyle(
+                            _fullDayName(_now.weekday),
+                            style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFFB0BEC5),
+                              color: Color(0xFFFF6A1B),
                             ),
                           ),
                         ],
                       ),
                       GestureDetector(
-                        onTap: widget.onSettingsTap,
+                        onTap: () {
+                          Navigator.of(context).pushNamed(AppRoutes.healthBand);
+                        },
                         child: Container(
                           width: 48,
                           height: 48,
@@ -2855,24 +2967,30 @@ class _CalzHomeScreenViewState extends State<CalzHomeScreenView> {
                           ),
                           alignment: Alignment.center,
                           child: const Icon(
-                            Icons.person_rounded,
-                            color: Color(0xFFB0BEC5),
+                            Icons.bluetooth_connected_rounded,
+                            color: Color(0xFF2F80ED),
                             size: 26,
                           ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 12),
+
+                  // ESP32 Health Band Quick Action Card
+                  const HealthBandQuickCard(),
+
+                  const SizedBox(height: 12),
 
                   // 2. Weekday Calendar Selector Bar
                   SizedBox(
                     height: 76,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: List.generate(_weekDays.length, (index) {
-                        final item = _weekDays[index];
+                      children: List.generate(weekDays.length, (index) {
+                        final item = weekDays[index];
                         final isSelected = index == _selectedDayIndex;
+                        final isToday = item['isToday'] == true;
 
                         if (isSelected) {
                           return Container(
@@ -2882,7 +3000,12 @@ class _CalzHomeScreenViewState extends State<CalzHomeScreenView> {
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: const Color(0xFFEBEAE5), width: 1.5),
+                              border: Border.all(
+                                color: isToday
+                                    ? const Color(0xFFFF6A1B)
+                                    : const Color(0xFFEBEAE5),
+                                width: isToday ? 2.0 : 1.5,
+                              ),
                               boxShadow: const [
                                 BoxShadow(
                                   color: Color(0x0E000000),
@@ -2896,25 +3019,31 @@ class _CalzHomeScreenViewState extends State<CalzHomeScreenView> {
                               children: [
                                 Text(
                                   item['day'] as String,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w600,
-                                    color: Color(0xFFB0BEC5),
+                                    color: isToday
+                                        ? const Color(0xFFFF6A1B)
+                                        : const Color(0xFFB0BEC5),
                                   ),
                                 ),
                                 Text(
                                   item['num'] as String,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w900,
-                                    color: Color(0xFF111111),
+                                    color: isToday
+                                        ? const Color(0xFFFF6A1B)
+                                        : const Color(0xFF111111),
                                   ),
                                 ),
                                 Container(
                                   width: 8,
                                   height: 8,
-                                  decoration: const BoxDecoration(
-                                    color: Color(0xFFFFC107),
+                                  decoration: BoxDecoration(
+                                    color: isToday
+                                        ? const Color(0xFFFF6A1B)
+                                        : const Color(0xFFFFC107),
                                     shape: BoxShape.circle,
                                   ),
                                 ),
@@ -2932,29 +3061,47 @@ class _CalzHomeScreenViewState extends State<CalzHomeScreenView> {
                               children: [
                                 Text(
                                   item['day'] as String,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFFC4C4C4),
+                                    fontWeight: isToday
+                                        ? FontWeight.bold
+                                        : FontWeight.w600,
+                                    color: isToday
+                                        ? const Color(0xFFFF6A1B)
+                                        : const Color(0xFFC4C4C4),
                                   ),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
                                   item['num'] as String,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 16,
-                                    fontWeight: FontWeight.w700,
-                                    color: Color(0xFFB0BEC5),
+                                    fontWeight: isToday
+                                        ? FontWeight.w900
+                                        : FontWeight.w700,
+                                    color: isToday
+                                        ? const Color(0xFFFF6A1B)
+                                        : const Color(0xFFB0BEC5),
                                   ),
                                 ),
                                 const SizedBox(height: 4),
-                                Text(
-                                  item['target'] as String,
-                                  style: const TextStyle(
-                                    fontSize: 10,
-                                    color: Color(0xFFD0D0D0),
+                                if (isToday)
+                                  Container(
+                                    width: 6,
+                                    height: 6,
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFFFF6A1B),
+                                      shape: BoxShape.circle,
+                                    ),
+                                  )
+                                else
+                                  Text(
+                                    item['target'] as String,
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: Color(0xFFD0D0D0),
+                                    ),
                                   ),
-                                ),
                               ],
                             ),
                           ),
@@ -3032,7 +3179,11 @@ class _CalzHomeScreenViewState extends State<CalzHomeScreenView> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 36),
+                  const SizedBox(height: 28),
+
+                  // 6. Device Steps & Movement Graph Card
+                  const WeeklyStepsGraphCard(),
+                  const SizedBox(height: 28),
 
                   // 7. Calz AI Coach Banner
                   Container(

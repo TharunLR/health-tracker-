@@ -8,6 +8,8 @@ import 'package:pedometer/pedometer.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'esp32_health_band_service.dart';
+
 class StepsSnapshot {
   const StepsSnapshot({
     required this.stepsToday,
@@ -195,6 +197,19 @@ class StepsService {
     }
   }
 
+  /// Called when ESP32 Health Band is connected to prioritize live band step count
+  void updateBandSteps(int bandSteps) {
+    final now = DateTime.now();
+    _controller.add(
+      StepsSnapshot(
+        stepsToday: bandSteps,
+        rawSteps: bandSteps,
+        lastUpdated: now,
+        status: StepsStatus.live,
+      ),
+    );
+  }
+
   Future<bool> _hasPermission() async {
     if (kIsWeb) return false;
     if (Platform.isIOS) {
@@ -219,6 +234,9 @@ class StepsService {
 
     if (Platform.isAndroid) {
       final status = await Permission.activityRecognition.request();
+      if (await Permission.notification.isDenied) {
+        await Permission.notification.request();
+      }
       return status.isGranted;
     }
 
@@ -238,9 +256,25 @@ class StepsService {
   }
 
   void _handleStepCount(StepCount event) async {
-    final eventDate = _formatDate(event.timeStamp.toLocal());
+    // If ESP32 Health Band is connected, preserve mobile readings unmutated
+    if (ESP32HealthBandService.instance.currentData.isConnected) {
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final storedLastSteps = prefs.getInt(_lastStepsKey);
     final currentSteps = event.steps;
-    final previousSteps = _lastSteps;
+
+    // Avoid duplicate processing if background tracking already saved equal or higher step count
+    if (storedLastSteps != null && storedLastSteps >= currentSteps && _lastSteps != null && storedLastSteps > _lastSteps!) {
+      await _loadStoredState(prefs: prefs, emitLiveSnapshot: true);
+      return;
+    }
+
+    final eventDate = _formatDate(event.timeStamp.toLocal());
+    final previousSteps = storedLastSteps != null && storedLastSteps > (_lastSteps ?? 0)
+        ? storedLastSteps
+        : _lastSteps;
     final dateChanged = _baselineDate != eventDate;
     final resetDetected = (_baseline != null && currentSteps < _baseline!) ||
         (previousSteps != null && currentSteps < previousSteps);
@@ -250,7 +284,6 @@ class StepsService {
     if (_baseline == null || dateChanged || resetDetected) {
       _baseline = currentSteps;
       _baselineDate = eventDate;
-      final prefs = await SharedPreferences.getInstance();
       await prefs.setInt(_baselineKey, _baseline!);
       await prefs.setString(_baselineDateKey, _baselineDate!);
       _hourlySteps = List<int>.filled(24, 0);
@@ -273,7 +306,6 @@ class StepsService {
     _updateDailyTotals(eventDate, stepsToday);
 
     _lastSteps = currentSteps;
-    final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_lastStepsKey, _lastSteps!);
 
     _updateHourly(event, previousSteps: previousSteps);
@@ -318,6 +350,15 @@ class StepsService {
     final calibratedDelta = _applyCalibration(rawDelta);
     _hourlySteps[time.hour] =
         (_hourlySteps[time.hour] + calibratedDelta).clamp(0, 999999);
+
+    final stepsToday = _baseline != null
+        ? _applyCalibration((event.steps - _baseline!).clamp(0, 999999))
+        : 0;
+    final currentSum = _hourlySteps.fold<int>(0, (s, v) => s + v);
+    if (stepsToday > currentSum) {
+      _hourlySteps[time.hour] =
+          (_hourlySteps[time.hour] + (stepsToday - currentSum)).clamp(0, 999999);
+    }
 
     _hourlyController.add(
       HourlyActivitySnapshot(
@@ -503,6 +544,12 @@ class StepsService {
               (_lastSteps! - (_baseline ?? 0)).clamp(0, 999999),
             )
             : (_dailyTotals[todayKey] ?? 0);
+
+    final currentSum = _hourlySteps.fold<int>(0, (s, v) => s + v);
+    if (initialSteps > currentSum) {
+      _hourlySteps[now.hour] =
+          (_hourlySteps[now.hour] + (initialSteps - currentSum)).clamp(0, 999999);
+    }
 
     _controller.add(
       StepsSnapshot(

@@ -10,49 +10,72 @@ class NutritionGraphCard extends StatefulWidget {
 }
 
 class _NutritionGraphCardState extends State<NutritionGraphCard> {
-  int _selectedDayIndex = 6; // Sunday/Today default
+  int _selectedDayIndex = 29; // Today default
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<FoodLogEntry>>(
       stream: FoodLogService.instance.entriesStream,
+      initialData: FoodLogService.instance.currentEntries,
       builder: (context, snapshot) {
         final entries = snapshot.data ?? const [];
-
-        // Generate past 7 days data
         final now = DateTime.now();
-        final days = List.generate(7, (i) {
-          final date = now.subtract(Duration(days: 6 - i));
-          return date;
+
+        final days = List.generate(30, (i) {
+          return DateTime(now.year, now.month, now.day).subtract(Duration(days: 29 - i));
         });
 
-        final dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-        // Aggregate calories per day
-        final dayCalories = List<double>.filled(7, 0.0);
-        double totalProtein = 0;
-        double totalCarbs = 0;
-        double totalFat = 0;
+        final dayCalories = List<double>.filled(30, 0.0);
+        final dayProtein = List<double>.filled(30, 0.0);
+        final dayCarbs = List<double>.filled(30, 0.0);
+        final dayFat = List<double>.filled(30, 0.0);
 
         for (final entry in entries) {
-          final diffDays = now.difference(entry.timestamp).inDays;
-          if (diffDays >= 0 && diffDays < 7) {
-            final dayIndex = 6 - diffDays;
-            if (dayIndex >= 0 && dayIndex < 7) {
-              dayCalories[dayIndex] += (entry.calories ?? 0);
+          for (var i = 0; i < 30; i++) {
+            final date = days[i];
+            if (entry.timestamp.year == date.year &&
+                entry.timestamp.month == date.month &&
+                entry.timestamp.day == date.day) {
+              final cal = entry.calories ?? 0;
+              dayCalories[i] += cal;
+              dayProtein[i] += entry.proteinG ?? (cal * 0.25 / 4);
+              dayCarbs[i] += entry.carbsG ?? (cal * 0.50 / 4);
+              dayFat[i] += entry.fatG ?? (cal * 0.25 / 9);
             }
           }
-          // Simple estimation fallback for demo macros if not detailed
-          final cal = entry.calories ?? 0;
-          totalProtein += cal * 0.25 / 4; // 25% protein
-          totalCarbs += cal * 0.50 / 4;   // 50% carbs
-          totalFat += cal * 0.25 / 9;     // 25% fat
         }
 
-        final selectedCal = dayCalories[_selectedDayIndex].round();
+        final safeIndex = _selectedDayIndex.clamp(0, 29);
+        final selectedCal = dayCalories[safeIndex].round();
+        final totalProtein = dayProtein[safeIndex];
+        final totalCarbs = dayCarbs[safeIndex];
+        final totalFat = dayFat[safeIndex];
+
         final maxCal = dayCalories.reduce(math.max);
-        final targetCal = 2000.0;
+        const targetCal = 2000.0;
         final highestValue = math.max(maxCal, targetCal * 1.1);
+
+        final isTodaySelected = safeIndex == 29;
+        final dateLabel = isTodaySelected
+            ? 'Today'
+            : '${days[safeIndex].day}/${days[safeIndex].month}';
 
         return Container(
           padding: const EdgeInsets.all(20),
@@ -78,7 +101,7 @@ class _NutritionGraphCardState extends State<NutritionGraphCard> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Nutrition Analytics',
+                          'Nutrition Analytics (30 Days)',
                           style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                 color: const Color(0xFF111111),
                                 fontWeight: FontWeight.bold,
@@ -86,7 +109,7 @@ class _NutritionGraphCardState extends State<NutritionGraphCard> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Weekly Calorie & Macro Trends',
+                          'Scroll horizontally to view past dates',
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                 color: const Color(0xFF6F6A64),
                               ),
@@ -96,8 +119,7 @@ class _NutritionGraphCardState extends State<NutritionGraphCard> {
                   ),
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFFE9DB),
                       borderRadius: BorderRadius.circular(20),
@@ -105,11 +127,10 @@ class _NutritionGraphCardState extends State<NutritionGraphCard> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.local_fire_department_rounded,
-                            size: 16, color: Color(0xFFFF6A1B)),
+                        const Icon(Icons.local_fire_department_rounded, size: 16, color: Color(0xFFFF6A1B)),
                         const SizedBox(width: 4),
                         Text(
-                          '$selectedCal kcal',
+                          '$dateLabel: $selectedCal kcal',
                           style: const TextStyle(
                             color: Color(0xFFFF6A1B),
                             fontWeight: FontWeight.w700,
@@ -121,90 +142,105 @@ class _NutritionGraphCardState extends State<NutritionGraphCard> {
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
 
-              // Weekly Bar Chart
+              // 30-Day Horizontal Bar Chart
               SizedBox(
-                height: 160,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: List.generate(7, (index) {
-                    final dayDate = days[index];
-                    final dayLabel = dayNames[dayDate.weekday - 1];
-                    final cal = dayCalories[index];
-                    final heightFactor =
-                        highestValue > 0 ? (cal / highestValue).clamp(0.05, 1.0) : 0.05;
-                    final isSelected = index == _selectedDayIndex;
+                height: 165,
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: List.generate(30, (index) {
+                      final cal = dayCalories[index];
+                      final heightFactor = highestValue > 0 ? (cal / highestValue).clamp(0.05, 1.0) : 0.05;
+                      final isSelected = index == safeIndex;
+                      final isToday = index == 29;
+                      final dayDate = days[index];
+                      final dayLabel = isToday ? 'Today' : '${dayDate.day}/${dayDate.month}';
 
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _selectedDayIndex = index;
-                        });
-                      },
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          if (isSelected)
-                            Container(
-                              margin: const EdgeInsets.only(bottom: 6),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF111111),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                '${cal.round()}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedDayIndex = index;
+                          });
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: SizedBox(
+                            width: 32,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                if (isSelected)
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Container(
+                                      margin: const EdgeInsets.only(bottom: 4),
+                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF111111),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        '${cal.round()}',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  const SizedBox(height: 14),
+                                AnimatedContainer(
+                                  duration: const Duration(milliseconds: 250),
+                                  width: isSelected ? 18 : 12,
+                                  height: 100 * heightFactor,
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.bottomCenter,
+                                      end: Alignment.topCenter,
+                                      colors: isSelected
+                                          ? [const Color(0xFFFF6A1B), const Color(0xFFFFB37A)]
+                                          : [const Color(0xFFE2DDD5), const Color(0xFFF4F1EC)],
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                    boxShadow: isSelected
+                                        ? [
+                                            BoxShadow(
+                                              color: const Color(0xFFFF6A1B).withValues(alpha: 0.4),
+                                              blurRadius: 8,
+                                              offset: const Offset(0, 4),
+                                            )
+                                          ]
+                                        : [],
+                                  ),
                                 ),
-                              ),
-                            ),
-                          AnimatedContainer(
-                            duration: const Duration(milliseconds: 300),
-                            width: isSelected ? 22 : 16,
-                            height: 110 * heightFactor,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.bottomCenter,
-                                end: Alignment.topCenter,
-                                colors: isSelected
-                                    ? [const Color(0xFFFF6A1B), const Color(0xFFFFB37A)]
-                                    : [const Color(0xFFE2DDD5), const Color(0xFFF4F1EC)],
-                              ),
-                              borderRadius: BorderRadius.circular(10),
-                              boxShadow: isSelected
-                                  ? [
-                                      BoxShadow(
-                                        color: const Color(0xFFFF6A1B)
-                                            .withValues(alpha: 0.4),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 4),
-                                      )
-                                    ]
-                                  : [],
+                                const SizedBox(height: 6),
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    dayLabel,
+                                    style: TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                      color: isToday
+                                          ? const Color(0xFFFF6A1B)
+                                          : (isSelected ? const Color(0xFFFF6A1B) : const Color(0xFF8C867E)),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            dayLabel,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight:
-                                  isSelected ? FontWeight.bold : FontWeight.normal,
-                              color: isSelected
-                                  ? const Color(0xFFFF6A1B)
-                                  : const Color(0xFF8C867E),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
+                        ),
+                      );
+                    }),
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
@@ -213,7 +249,7 @@ class _NutritionGraphCardState extends State<NutritionGraphCard> {
 
               // Macro Breakdown Section
               Text(
-                'Macronutrient Breakdown',
+                'Macronutrient Breakdown ($dateLabel)',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                       color: const Color(0xFF111111),

@@ -213,15 +213,18 @@ class _FoodLogCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final time =
-        '${entry.timestamp.hour.toString().padLeft(2, '0')}:${entry.timestamp.minute.toString().padLeft(2, '0')}';
+    final hour = entry.timestamp.hour == 0 ? 12 : (entry.timestamp.hour > 12 ? entry.timestamp.hour - 12 : entry.timestamp.hour);
+    final minute = entry.timestamp.minute.toString().padLeft(2, '0');
+    final ampm = entry.timestamp.hour >= 12 ? 'PM' : 'AM';
+    final timeStr = '$hour:$minute $ampm';
+
     final calories = entry.calories == null
         ? '0 kcal'
         : '${entry.calories!.round()} kcal';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -233,32 +236,89 @@ class _FoodLogCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildPhotoPreview(),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  entry.name,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: const Color(0xFF111111),
-                    fontWeight: FontWeight.w700,
-                  ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildPhotoPreview(),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      entry.name,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: const Color(0xFF111111),
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '$timeStr • $calories',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: const Color(0xFF6F6A64),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (entry.proteinG != null || entry.carbsG != null || entry.fatG != null) ...[
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          if (entry.proteinG != null)
+                            _buildMiniChip('${entry.proteinG!.toStringAsFixed(1)}g P', const Color(0xFF1565C0), const Color(0xFFF0F7FF)),
+                          if (entry.carbsG != null)
+                            _buildMiniChip('${entry.carbsG!.toStringAsFixed(1)}g C', const Color(0xFF2E7D32), const Color(0xFFF2F9F2)),
+                          if (entry.fatG != null)
+                            _buildMiniChip('${entry.fatG!.toStringAsFixed(1)}g F', const Color(0xFFC2185B), const Color(0xFFFFF0F3)),
+                          if (entry.portionGrams != null)
+                            _buildMiniChip('${entry.portionGrams!.toInt()}g', const Color(0xFF7B1FA2), const Color(0xFFF3E5F5)),
+                        ],
+                      ),
+                    ],
+                  ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  '$time - $calories',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: const Color(0xFF6F6A64),
-                  ),
-                ),
-              ],
-            ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline_rounded, size: 20, color: Color(0xFFD32F2F)),
+                onPressed: () => FoodLogService.instance.removeEntry(entry.id),
+              ),
+            ],
           ),
+          if (entry.itemsSummary != null && entry.itemsSummary!.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8F6F2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                entry.itemsSummary!,
+                style: const TextStyle(fontSize: 12, color: Color(0xFF55504A), height: 1.35),
+              ),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildMiniChip(String label, Color textColor, Color bgColor) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: textColor),
       ),
     );
   }
@@ -274,8 +334,8 @@ class _FoodLogCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(14),
             child: Image.network(
               trimmedPath,
-              width: 64,
-              height: 64,
+              width: 72,
+              height: 72,
               fit: BoxFit.cover,
               errorBuilder: (_, _, _) => _buildPhotoFallback(),
             ),
@@ -289,8 +349,8 @@ class _FoodLogCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
               child: Image.file(
                 file,
-                width: 64,
-                height: 64,
+                width: 72,
+                height: 72,
                 fit: BoxFit.cover,
                 errorBuilder: (_, _, _) => _buildPhotoFallback(),
               ),
@@ -306,8 +366,8 @@ class _FoodLogCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         child: Image.memory(
           memoryBytes,
-          width: 64,
-          height: 64,
+          width: 72,
+          height: 72,
           fit: BoxFit.cover,
           errorBuilder: (_, _, _) => _buildPhotoFallback(),
         ),
@@ -319,14 +379,14 @@ class _FoodLogCard extends StatelessWidget {
 
   Widget _buildPhotoFallback() {
     return Container(
-      width: 64,
-      height: 64,
+      width: 72,
+      height: 72,
       decoration: BoxDecoration(
         color: const Color(0xFFFFE9DB),
         borderRadius: BorderRadius.circular(14),
       ),
       alignment: Alignment.center,
-      child: const Icon(Icons.restaurant_menu_rounded),
+      child: const Icon(Icons.restaurant_menu_rounded, color: Color(0xFFFF7A59)),
     );
   }
 

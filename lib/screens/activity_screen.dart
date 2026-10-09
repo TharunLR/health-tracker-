@@ -117,6 +117,7 @@ class ActivityScreen extends StatelessWidget {
           final profile = snapshot.data;
           return StreamBuilder<StepsSnapshot>(
             stream: StepsService.instance.stepsStream,
+            initialData: StepsService.instance.currentSnapshot,
             builder: (context, stepsSnapshot) {
               final stepsData = stepsSnapshot.data;
               final stepsToday =
@@ -133,6 +134,7 @@ class ActivityScreen extends StatelessWidget {
 
               return StreamBuilder<HourlyActivitySnapshot>(
                 stream: StepsService.instance.hourlyStream,
+                initialData: StepsService.instance.currentHourlyActivity,
                 builder: (context, hourlySnapshot) {
                   final hourlyActivity =
                       hourlySnapshot.data?.stepsPerHour ??
@@ -191,13 +193,72 @@ class ActivityScreen extends StatelessWidget {
   }
 }
 
-class _HourlyActivityCard extends StatelessWidget {
+class _HourlyActivityCard extends StatefulWidget {
   const _HourlyActivityCard({required this.values});
 
   final List<int> values;
 
   @override
+  State<_HourlyActivityCard> createState() => _HourlyActivityCardState();
+}
+
+class _HourlyActivityCardState extends State<_HourlyActivityCard> {
+  int _selectedDateIndex = 29; // Today default
+  final ScrollController _dateScrollController = ScrollController();
+  List<int>? _historicalHourlyValues;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_dateScrollController.hasClients) {
+        _dateScrollController.jumpTo(_dateScrollController.position.maxScrollExtent);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _dateScrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _selectDate(int index, DateTime date) async {
+    setState(() {
+      _selectedDateIndex = index;
+    });
+    if (index == 29) {
+      setState(() {
+        _historicalHourlyValues = null;
+      });
+      return;
+    }
+    final hourly = await StepsService.instance.getHourlyActivityForDate(date);
+    if (mounted) {
+      setState(() {
+        _historicalHourlyValues = hourly;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final days30 = List.generate(30, (i) {
+      return DateTime(now.year, now.month, now.day).subtract(Duration(days: 29 - i));
+    });
+
+    final safeIndex = _selectedDateIndex.clamp(0, 29);
+    final selectedDate = days30[safeIndex];
+    final isToday = safeIndex == 29;
+    final dateTitle = isToday ? 'Today' : '${selectedDate.day}/${selectedDate.month}';
+
+    final activeHourly = (isToday || _historicalHourlyValues == null)
+        ? widget.values
+        : _historicalHourlyValues!;
+
+    final totalDaySteps = activeHourly.fold<int>(0, (s, v) => s + v);
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -208,22 +269,76 @@ class _HourlyActivityCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '24-hour activity',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              color: const Color(0xFF111111),
-              fontWeight: FontWeight.w600,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '24-Hour Activity ($dateTitle)',
+                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                            color: const Color(0xFF111111),
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Total: $totalDaySteps steps (12 AM to 12 AM)',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: const Color(0xFF2E7D32),
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 6),
-          Text(
-            'Steps taken by hour (12 AM to 12 AM)',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: const Color(0xFF6F6A64),
+          const SizedBox(height: 14),
+
+          // 30-Day Horizontal Calendar Strip
+          SizedBox(
+            height: 38,
+            child: SingleChildScrollView(
+              controller: _dateScrollController,
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: Row(
+                children: List.generate(days30.length, (index) {
+                  final date = days30[index];
+                  final isSelected = index == safeIndex;
+                  final isCurrentDay = index == 29;
+                  final label = isCurrentDay ? 'Today' : '${date.day}/${date.month}';
+
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: ChoiceChip(
+                      label: Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          color: isSelected
+                              ? Colors.white
+                              : (isCurrentDay ? const Color(0xFFFF6A1B) : const Color(0xFF6F6A64)),
+                        ),
+                      ),
+                      selected: isSelected,
+                      selectedColor: const Color(0xFFFF6A1B),
+                      backgroundColor: const Color(0xFFF4F1EC),
+                      side: BorderSide.none,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      onSelected: (_) => _selectDate(index, date),
+                    ),
+                  );
+                }),
+              ),
             ),
           ),
           const SizedBox(height: 16),
-          _HourlyBarChart(values: values),
+          _HourlyBarChart(values: activeHourly, isToday: isToday),
         ],
       ),
     );
@@ -231,9 +346,10 @@ class _HourlyActivityCard extends StatelessWidget {
 }
 
 class _HourlyBarChart extends StatelessWidget {
-  const _HourlyBarChart({required this.values});
+  const _HourlyBarChart({required this.values, this.isToday = true});
 
   final List<int> values;
+  final bool isToday;
 
   String _formatHourLabel(int hour) {
     if (hour == 0) return '12a';
@@ -244,7 +360,7 @@ class _HourlyBarChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currentHour = DateTime.now().hour;
+    final currentHour = isToday ? DateTime.now().hour : -1;
     final maxValue = values.fold<int>(0, (max, value) {
       return value > max ? value : max;
     });

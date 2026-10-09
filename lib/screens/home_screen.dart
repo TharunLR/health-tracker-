@@ -770,10 +770,10 @@ class _DashboardHeader extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: () {
                       Navigator.of(sheetContext).pop();
-                      _showBluetoothStub(context);
+                      Navigator.of(context).pushNamed(AppRoutes.healthBand);
                     },
                     icon: const Icon(Icons.bluetooth_connected),
-                    label: const Text('Add device'),
+                    label: const Text('Add device / Band Control'),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -839,16 +839,6 @@ class _DashboardHeader extends StatelessWidget {
     );
   }
 
-  void _showBluetoothStub(BuildContext context) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        const SnackBar(
-          content: Text('Bluetooth device support is coming soon.'),
-        ),
-      );
-  }
-
   @override
   Widget build(BuildContext context) {
     final nameParts = dashboard.name
@@ -903,7 +893,7 @@ class _DashboardHeader extends StatelessWidget {
           children: [
             _HeaderActionButton(
               icon: Icons.bluetooth_connected,
-              onTap: () => _showBluetoothStub(context),
+              onTap: () => Navigator.of(context).pushNamed(AppRoutes.healthBand),
             ),
             const SizedBox(width: 10),
             InkWell(
@@ -992,177 +982,6 @@ class _HeaderActionButton extends StatelessWidget {
         alignment: Alignment.center,
         child: Icon(icon, color: const Color(0xFF111111)),
       ),
-    );
-  }
-}
-
-class _OverviewTileGrid extends StatelessWidget {
-  const _OverviewTileGrid({required this.tiles, this.onHydrationTap});
-
-  final List<OverviewTileSnapshot> tiles;
-  final VoidCallback? onHydrationTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final tileHeight = switch (constraints.maxWidth) {
-          >= 560 => 174.0,
-          >= 420 => 182.0,
-          _ => 192.0,
-        };
-
-        return GridView.builder(
-          itemCount: tiles.length,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 14,
-            mainAxisSpacing: 14,
-            mainAxisExtent: tileHeight,
-          ),
-          itemBuilder: (context, index) => _OverviewTile(
-            tile: tiles[index],
-            onHydrationTap: onHydrationTap,
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _OverviewTile extends StatelessWidget {
-  const _OverviewTile({required this.tile, this.onHydrationTap});
-
-  final OverviewTileSnapshot tile;
-  final VoidCallback? onHydrationTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final iconData = _tileIcon(tile.kind);
-    final iconColor = _tileIconColor(tile.kind);
-    final tileGradient = _tileGradient(tile.kind);
-    final onChevronTap = tile.kind == OverviewTileKind.activity
-        ? () =>
-            Navigator.of(context).pushNamed(AppRoutes.activityDetails)
-        : tile.kind == OverviewTileKind.hydration
-        ? onHydrationTap
-        : null;
-
-    final card = Container(
-      decoration: BoxDecoration(
-        color: tileGradient == null ? Colors.white : null,
-        gradient: tileGradient,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: _softCardShadow,
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: Stack(
-          children: [
-            if (tile.kind == OverviewTileKind.activity)
-              const Positioned(
-                left: 28,
-                bottom: -18,
-                child: _GlowOrb(color: Color(0xFFFF6A1B), size: 92),
-              ),
-            if (tile.kind == OverviewTileKind.hydration)
-              const Positioned(
-                right: -10,
-                bottom: -18,
-                child: _GlowOrb(color: Color(0xFF8BCBFF), size: 84),
-              ),
-            if (iconData != null)
-              Positioned(
-                right: 10,
-                bottom: 10,
-                child: Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: iconColor.withValues(alpha: 0.12),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    iconData,
-                    size: 28,
-                    color: iconColor.withValues(alpha: 0.8),
-                  ),
-                ),
-              ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          tile.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            color: const Color(0xFF2A2A2A),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      onChevronTap == null
-                          ? const Icon(
-                              Icons.chevron_right_rounded,
-                              color: Color(0xFF2A2A2A),
-                            )
-                          : IconButton(
-                              onPressed: onChevronTap,
-                              icon: const Icon(
-                                Icons.chevron_right_rounded,
-                                color: Color(0xFF2A2A2A),
-                              ),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                              visualDensity: VisualDensity.compact,
-                            ),
-                    ],
-                  ),
-                  const Spacer(),
-                  Text(
-                    tile.value,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: const Color(0xFF111111),
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    tile.detail,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: const Color(0xFF6F6A64),
-                    ),
-                  ),
-                  SizedBox(height: iconData == null ? 10 : 18),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    if (onChevronTap == null) {
-      return card;
-    }
-
-    return InkWell(
-      onTap: onChevronTap,
-      borderRadius: BorderRadius.circular(24),
-      child: card,
     );
   }
 }
@@ -1472,82 +1291,6 @@ class _HydrationSheetState extends State<_HydrationSheet> {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-IconData? _tileIcon(OverviewTileKind kind) {
-  switch (kind) {
-    case OverviewTileKind.activity:
-      return Icons.directions_bike;
-    case OverviewTileKind.hydration:
-      return Icons.local_drink_rounded;
-    case OverviewTileKind.calories:
-      return Icons.local_fire_department_rounded;
-    case OverviewTileKind.weeklyGoal:
-      return Icons.emoji_events_rounded;
-  }
-}
-
-Color _tileIconColor(OverviewTileKind kind) {
-  switch (kind) {
-    case OverviewTileKind.activity:
-      return const Color(0xFFFF6A1B);
-    case OverviewTileKind.hydration:
-      return const Color(0xFF4BA7FF);
-    case OverviewTileKind.calories:
-      return const Color(0xFFEF5350);
-    case OverviewTileKind.weeklyGoal:
-      return const Color(0xFF7E57C2);
-  }
-}
-
-LinearGradient? _tileGradient(OverviewTileKind kind) {
-  switch (kind) {
-    case OverviewTileKind.activity:
-      return const LinearGradient(
-        colors: [Color(0xFFFFF4E6), Color(0xFFFFE6D1)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-    case OverviewTileKind.hydration:
-      return const LinearGradient(
-        colors: [Color(0xFFEAF6FF), Color(0xFFDDEEFF)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-    case OverviewTileKind.calories:
-      return const LinearGradient(
-        colors: [Color(0xFFFFEEF0), Color(0xFFFFE2E5)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-    case OverviewTileKind.weeklyGoal:
-      return const LinearGradient(
-        colors: [Color(0xFFF3EDFF), Color(0xFFE8E0FF)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-  }
-}
-
-class _GlowOrb extends StatelessWidget {
-  const _GlowOrb({required this.color, required this.size});
-
-  final Color color;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: RadialGradient(
-          colors: [color.withAlpha(220), color.withAlpha(0)],
         ),
       ),
     );
@@ -2540,103 +2283,6 @@ class _CalzNavItem extends StatelessWidget {
   }
 }
 
-class _ScanNavButton extends StatelessWidget {
-  const _ScanNavButton({required this.active, required this.onTap});
-
-  final bool active;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(34),
-      child: Container(
-        width: 64,
-        height: 64,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: active ? const Color(0xFFFF8A4C) : const Color(0xFFFFC7A4),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x33000000),
-              blurRadius: 16,
-              offset: Offset(0, 10),
-            ),
-          ],
-        ),
-        alignment: Alignment.center,
-        child: const _CrossedUtensilsIcon(size: 28),
-      ),
-    );
-  }
-}
-
-class _CrossedUtensilsIcon extends StatelessWidget {
-  const _CrossedUtensilsIcon({required this.size});
-
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: CustomPaint(
-        painter: _CrossedUtensilsPainter(),
-      ),
-    );
-  }
-}
-
-class _CrossedUtensilsPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill
-      ..isAntiAlias = true;
-
-    final center = Offset(size.width / 2, size.height / 2);
-    final spoonAngle = -0.8;
-    final forkAngle = 0.8;
-
-    canvas.save();
-    canvas.translate(center.dx - 2, center.dy + 2);
-    canvas.rotate(spoonAngle);
-    final spoonHandle =
-        Rect.fromCenter(center: const Offset(0, 4), width: 3.2, height: 18);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(spoonHandle, const Radius.circular(2)),
-      paint,
-    );
-    final spoonHead =
-        Rect.fromCenter(center: const Offset(0, -8), width: 8, height: 10);
-    canvas.drawOval(spoonHead, paint);
-    canvas.restore();
-
-    canvas.save();
-    canvas.translate(center.dx + 2, center.dy + 2);
-    canvas.rotate(forkAngle);
-    final forkHandle =
-        Rect.fromCenter(center: const Offset(0, 4), width: 3.2, height: 18);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(forkHandle, const Radius.circular(2)),
-      paint,
-    );
-    for (final dx in [-4.0, 0.0, 4.0]) {
-      canvas.drawRect(
-        Rect.fromLTWH(dx - 0.6, -12, 1.2, 6),
-        paint,
-      );
-    }
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
 class _ProfileInfoTile extends StatelessWidget {
   const _ProfileInfoTile({
     required this.label,
@@ -2770,58 +2416,6 @@ class _ProfileAvatar extends StatelessWidget {
     }
 
     return FileImage(file);
-  }
-}
-
-class _FirestoreWarningCard extends StatelessWidget {
-  const _FirestoreWarningCard({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFE0D3),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: _softCardShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.warning_amber_rounded, color: Color(0xFF111111)),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Firestore access is blocked',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: const Color(0xFF111111),
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Deploy the Firestore rules in this project so signed-in users can read and write their own profile documents.',
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(color: const Color(0xFF41332D)),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            message,
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: const Color(0xFF5E4B43)),
-          ),
-        ],
-      ),
-    );
   }
 }
 

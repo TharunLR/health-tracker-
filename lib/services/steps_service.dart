@@ -95,6 +95,74 @@ class StepsService {
 
   double get calibrationFactor => _calibrationFactor;
 
+  StepsSnapshot get currentSnapshot {
+    final now = DateTime.now();
+    final todayKey = _formatDate(now);
+    final isSameDate = _baselineDate == todayKey;
+    final hasBaselineToday =
+        _baseline != null && isSameDate && _lastSteps != null;
+    final initialSteps = hasBaselineToday
+        ? _applyCalibration((_lastSteps! - (_baseline ?? 0)).clamp(0, 999999))
+        : 0;
+    return StepsSnapshot(
+      stepsToday: initialSteps,
+      rawSteps: _lastSteps,
+      lastUpdated: now,
+      status: StepsStatus.live,
+    );
+  }
+
+  HourlyActivitySnapshot get currentHourlyActivity {
+    return HourlyActivitySnapshot(
+      stepsPerHour: List<int>.from(_hourlySteps),
+      lastUpdated: DateTime.now(),
+    );
+  }
+
+  Future<List<int>> getHourlyActivityForDate(DateTime date) async {
+    final dateKey = _formatDate(date);
+    final todayKey = _formatDate(DateTime.now());
+    if (dateKey == todayKey) {
+      return List<int>.from(_hourlySteps);
+    }
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('steps_hourly_$dateKey');
+    if (raw != null && raw.trim().isNotEmpty) {
+      final loaded = _loadHourlySteps(raw, dateKey, dateKey);
+      if (loaded.any((v) => v > 0)) {
+        return loaded;
+      }
+    }
+    // Fallback spread total daily steps across active daytime hours if hourly not recorded
+    final totalSteps = _dailyTotals[dateKey] ?? 0;
+    if (totalSteps <= 0) return List<int>.filled(24, 0);
+    final perHour = List<int>.filled(24, 0);
+    final activeHours = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+    final chunk = (totalSteps / activeHours.length).round();
+    for (final h in activeHours) {
+      perHour[h] = chunk;
+    }
+    return perHour;
+  }
+
+  WeeklyStepsSnapshot get currentWeeklySnapshot {
+    final now = DateTime.now();
+    final dailySteps = _computeLastSevenDays(now);
+    final currentWeekSteps = _computeWeekSteps(now);
+    final previousWeekSteps = _computeWeekSteps(now, weeksAgo: 1);
+    final monthlyHistory = _computeLastThirtyDaysHistory(now);
+    final sum = dailySteps.fold<int>(0, (total, value) => total + value);
+    final average = dailySteps.isEmpty ? 0.0 : sum / dailySteps.length;
+    return WeeklyStepsSnapshot(
+      dailySteps: dailySteps,
+      currentWeekSteps: currentWeekSteps,
+      previousWeekSteps: previousWeekSteps,
+      monthlyHistory: monthlyHistory,
+      averageSteps: average,
+      lastUpdated: now,
+    );
+  }
+
   Future<void> start() async {
     await _ensureStarted();
   }
@@ -368,8 +436,10 @@ class StepsService {
     );
 
     SharedPreferences.getInstance().then((prefs) {
-      prefs.setString(_hourlyDateKey, _hourlyDate ?? _formatDate(time));
+      final key = _hourlyDate ?? _formatDate(time);
+      prefs.setString(_hourlyDateKey, key);
       prefs.setString(_hourlyKey, _serializeHourlySteps(_hourlySteps));
+      prefs.setString('steps_hourly_$key', _serializeHourlySteps(_hourlySteps));
     });
   }
 

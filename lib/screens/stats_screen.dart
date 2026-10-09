@@ -112,6 +112,7 @@ class StatsScreen extends StatelessWidget {
           final profile = snapshot.data;
           return StreamBuilder<StepsSnapshot>(
             stream: StepsService.instance.stepsStream,
+            initialData: StepsService.instance.currentSnapshot,
             builder: (context, stepsSnapshot) {
               final stepsData = stepsSnapshot.data;
               final stepsToday =
@@ -120,6 +121,7 @@ class StatsScreen extends StatelessWidget {
                       : null;
               return StreamBuilder<WeeklyStepsSnapshot>(
                 stream: StepsService.instance.weeklyStepsStream,
+                initialData: StepsService.instance.currentWeeklySnapshot,
                 builder: (context, weeklyStepsSnapshot) {
                   final weeklySteps = weeklyStepsSnapshot.data;
                   final dashboard = DashboardSnapshot.fromProfile(

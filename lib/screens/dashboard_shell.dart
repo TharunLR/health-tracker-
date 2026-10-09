@@ -2,8 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../app_routes.dart';
-import '../services/auth_service.dart';
 import '../services/dashboard_tab_controller.dart';
 import '../services/esp32_health_band_service.dart';
 import '../services/steps_service.dart';
@@ -24,7 +22,6 @@ class DashboardShell extends StatefulWidget {
 
 class _DashboardShellState extends State<DashboardShell>
     with WidgetsBindingObserver {
-  final AuthService _authService = AuthService();
   StreamSubscription<HealthBandData>? _bandSub;
   bool? _lastConnectionState;
 
@@ -101,70 +98,6 @@ class _DashboardShellState extends State<DashboardShell>
       final isConnected = ESP32HealthBandService.instance.currentData.isConnected;
       _showBandStatusToast(isConnected);
     }
-  }
-
-  Future<void> _signOut() async {
-    await _authService.signOut();
-    if (!mounted) {
-      return;
-    }
-    Navigator.of(
-      context,
-    ).pushNamedAndRemoveUntil(AppRoutes.splash, (route) => false);
-  }
-
-  void _showSettingsSheet() {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      backgroundColor: Colors.white,
-      builder: (sheetContext) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 6, 12, 18),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.info_outline_rounded),
-                  title: const Text('About'),
-                  subtitle: const Text('Health Tracker app information'),
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    showDialog<void>(
-                      context: context,
-                      builder: (dialogContext) => AlertDialog(
-                        title: const Text('About Health Tracker'),
-                        content: const Text(
-                          'Health Tracker helps you stay on top of your goals, '
-                          'daily activity, and progress.',
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () =>
-                                Navigator.of(dialogContext).pop(),
-                            child: const Text('Close'),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.logout_rounded),
-                  title: const Text('Logout'),
-                  subtitle: const Text('Sign out of this account'),
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    _signOut();
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
   }
 
   @override

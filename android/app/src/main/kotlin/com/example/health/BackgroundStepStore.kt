@@ -49,7 +49,7 @@ object BackgroundStepStore {
 
         var resolvedBaseline = baseline
         if (!hasBaseline || baselineDate != eventDate || resetDetected) {
-            resolvedBaseline = currentSteps
+            resolvedBaseline = previousSteps ?: currentSteps
         }
 
         val calibration = readCalibration(prefs)

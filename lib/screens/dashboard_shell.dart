@@ -10,6 +10,8 @@ import 'food_scanner_screen.dart';
 import 'home_screen.dart';
 import 'stats_screen.dart';
 import 'wellness_screen.dart';
+import '../widgets/calz_ai_coach_sheet.dart';
+import '../widgets/calz_mascot_widget.dart';
 
 class DashboardShell extends StatefulWidget {
   const DashboardShell({super.key, this.initialIndex = 0});
@@ -112,6 +114,29 @@ class _DashboardShellState extends State<DashboardShell>
         return Scaffold(
           backgroundColor: const Color(0xFFF4F1EC),
           body: IndexedStack(index: safeIndex, children: _tabs),
+          floatingActionButton: Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            child: FloatingActionButton.extended(
+              onPressed: () => CalzAICoachSheet.show(context),
+              backgroundColor: const Color(0xFFFF7A59),
+              elevation: 8,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+              icon: const SizedBox(
+                width: 28,
+                height: 28,
+                child: CalzMascotWidget(size: 28, showBadge: false),
+              ),
+              label: const Text(
+                'Ask ARTI AI',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ),
+          floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
           bottomNavigationBar: DashboardNavigationBar(
             currentIndex: safeIndex,
             onHomeTap: () => DashboardTabController.setIndex(0),

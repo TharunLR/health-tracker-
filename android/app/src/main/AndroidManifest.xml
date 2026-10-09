@@ -34,7 +34,7 @@
     <!--                     APPLICATION DEFINITION                    -->
     <!-- ============================================================= -->
     <application
-        android:label="health"
+        android:label="ARTI Health"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 

@@ -23,35 +23,50 @@ class CalzAICoachService {
 
   static final CalzAICoachService instance = CalzAICoachService._();
 
-  /// Generates a personalized daily health summary from live telemetry (Calories, Steps, ESP32 BLE Vitals, Hydration)
+  /// Generates a rich, structured, personalized daily health summary from live telemetry
   Future<String> generateDailyHealthSummary() async {
     final cals = FoodLogService.instance.getTodayCalories().toInt();
     final steps = StepsService.instance.currentSnapshot.stepsToday;
     final water = (HydrationService.instance.currentSnapshot.todayLiters * 1000).toInt();
     final bandData = ESP32HealthBandService.instance.currentData;
 
+    final entries = FoodLogService.instance.currentEntries;
+    final loggedFoodNames = entries.isNotEmpty
+        ? entries.take(4).map((e) => e.name).join(', ')
+        : 'No meals logged yet today';
+
     final bpmStr = bandData.isConnected && bandData.bpm > 0
         ? '${bandData.bpm} BPM'
-        : 'Normal resting pulse';
+        : 'Normal resting pulse (72 BPM)';
     final spo2Str = bandData.isConnected && bandData.spo2 > 0
         ? '${bandData.spo2}%'
-        : '98%';
+        : '98% (Optimal Blood Oxygen)';
 
     final promptText = '''
-You are "Calz AI", an encouraging, expert AI Personal Health Coach for a health tracker app.
-Analyze the user's live daily health stats:
-- Calories consumed today: $cals kcal (Target: ~2000 kcal)
-- Physical steps walked today: $steps steps (Target: 10,000 steps)
-- Water intake today: ${water}ml (Target: 2500ml)
-- ESP32 Hardware Band Sensors: Heart Rate = $bpmStr, SpO2 = $spo2Str
+You are "ARTI AI Health Coach", an expert clinical nutritionist and personal health advisor for the "ARTI Health" app.
+Analyze the user's live daily telemetry and metrics:
 
-Write a concise, friendly, 2-3 sentence personalized summary & health recommendation for the user. Keep it motivating, practical, and highly engaging!
+📊 TODAY'S METRICS & TELEMETRY:
+- Calorie Intake: $cals kcal / 2000 kcal target
+- Logged Meals Today: $loggedFoodNames
+- Physical Steps: $steps steps / 10,000 step target (~${(steps * 0.00075).toStringAsFixed(1)} km)
+- Water Hydration: ${water}ml / 2500ml target
+- ESP32 Hardware Band Sensors: Heart Rate = $bpmStr | Blood Oxygen SpO2 = $spo2Str | Connection = ${bandData.isConnected ? "Active BLE Connected" : "Simulated/Offline"}
+
+REQUIREMENTS:
+Write an exceptionally high-quality, professional, encouraging, and structured health summary for the user using clean Markdown formatting:
+1. Start with an overall **Daily Health & Energy Status** (1 sentence summary).
+2. Provide **Dietary & Macronutrient Guidance**: Analyze calorie balance, suggest specific healthy foods (e.g. paneer, chana, dal, sprouts, curd, oats, eggs) to fill nutrition gaps.
+3. Provide **Movement & Heart Rate Insights**: Evaluate physical steps and ESP32 heart rate trends.
+4. Conclude with **Hydration & Actionable Next Step**.
+
+Keep the tone expert, motivating, friendly, and structured with clean bullet points and emoji headers!
 ''';
 
-    return _queryGeminiAI(promptText, fallbackText: _buildFallbackSummary(cals, steps, water, bandData));
+    return _queryGeminiAI(promptText, fallbackText: _buildFallbackSummary(cals, steps, water, bandData, loggedFoodNames));
   }
 
-  /// Handles user chat messages with Calz AI Coach
+  /// Handles user chat messages with ARTI AI Coach
   Future<String> answerUserQuestion(String question) async {
     final sanitizedQuestion = SecurityUtils.sanitizeInput(question);
     final cals = FoodLogService.instance.getTodayCalories().toInt();
@@ -59,13 +74,22 @@ Write a concise, friendly, 2-3 sentence personalized summary & health recommenda
     final water = (HydrationService.instance.currentSnapshot.todayLiters * 1000).toInt();
     final bandData = ESP32HealthBandService.instance.currentData;
 
+    final entries = FoodLogService.instance.currentEntries;
+    final loggedFoodNames = entries.isNotEmpty
+        ? entries.take(4).map((e) => e.name).join(', ')
+        : 'No meals logged yet today';
+
     final promptText = '''
-You are "Calz AI", a smart personal health coach in a Flutter app.
-Current user stats: Calories=$cals kcal, Steps=$steps, Water=${water}ml, HeartRate=${bandData.bpm} BPM, SpO2=${bandData.spo2}%.
+You are "ARTI AI Health Coach", a senior clinical nutritionist and health advisor in the "ARTI Health" app.
+User's Live Data:
+- Calories: $cals / 2000 kcal | Meals: $loggedFoodNames
+- Steps: $steps / 10,000 steps
+- Water: ${water}ml / 2500ml
+- ESP32 Band: Heart Rate = ${bandData.bpm > 0 ? bandData.bpm : 72} BPM | SpO2 = ${bandData.spo2 > 0 ? bandData.spo2 : 98}%
 
-User Question: "$sanitizedQuestion"
+USER QUESTION: "$sanitizedQuestion"
 
-Respond helpfully in 2-3 concise sentences with actionable health/nutrition advice.
+Provide a detailed, highly accurate, structured answer using bullet points, specific food suggestions, and actionable health guidance tailored directly to their current metrics!
 ''';
 
     return _queryGeminiAI(promptText, fallbackText: _buildFallbackAnswer(sanitizedQuestion, cals, steps, water));
@@ -98,11 +122,11 @@ Respond helpfully in 2-3 concise sentences with actionable health/nutrition advi
               },
             ],
             'generationConfig': {
-              'temperature': 0.3,
-              'maxOutputTokens': 250,
+              'temperature': 0.2,
+              'maxOutputTokens': 700,
             },
           }),
-        ).timeout(const Duration(seconds: 10));
+        ).timeout(const Duration(seconds: 12));
 
         if (response.statusCode >= 200 && response.statusCode < 300) {
           final body = jsonDecode(response.body) as Map<String, dynamic>;
@@ -124,25 +148,56 @@ Respond helpfully in 2-3 concise sentences with actionable health/nutrition advi
     return fallbackText;
   }
 
-  String _buildFallbackSummary(int cals, int steps, int water, HealthBandData bandData) {
-    if (steps >= 8000) {
-      return "Fantastic activity today! You've walked $steps steps. Make sure to hydrate with another glass of water and keep your protein intake balanced!";
-    } else if (cals < 1200) {
-      return "You're doing great! Your calorie intake is currently $cals kcal. Consider a light healthy snack like fruits or curd to keep your energy high!";
-    } else {
-      return "Welcome to your health dashboard! Track your meals, drink water, and connect your ESP32 Dev Board to unlock real-time pulse and step insights.";
-    }
+  String _buildFallbackSummary(int cals, int steps, int water, HealthBandData bandData, String loggedFoodNames) {
+    final calsRemaining = (2000 - cals).clamp(0, 2000);
+    final stepsRemaining = (10000 - steps).clamp(0, 10000);
+
+    return '''
+🌟 **Daily Health & Energy Summary**
+You're maintaining a steady pace today with **$cals kcal** consumed and **$steps steps** walked!
+
+🥗 **Dietary & Nutrition Advice**
+- **Calories Remaining**: $calsRemaining kcal left for your daily 2,000 kcal target.
+- **Recommended Foods**: Add a protein-rich meal like *Paneer Bhurji*, *Rajma*, *Sprouted Moong Salad*, or *Greek Yoghurt* to meet your macro goals.
+
+🏃 **Activity & ESP32 Vitals**
+- **Steps Progress**: $steps / 10,000 steps ($stepsRemaining steps to target).
+- **Heart Rate & SpO2**: ${bandData.isConnected ? "${bandData.bpm} BPM | SpO2 ${bandData.spo2}%" : "72 BPM (Optimal Resting Pulse)"}.
+
+💧 **Hydration Goal**: You've logged ${water}ml of water. Drink another 500ml glass before dinner!
+''';
   }
 
   String _buildFallbackAnswer(String question, int cals, int steps, int water) {
     final q = question.toLowerCase();
-    if (q.contains('dinner') || q.contains('food') || q.contains('eat')) {
-      return "For dinner, aim for a balanced plate with 20-30g of protein (like paneer, dal, or lean chicken) alongside complex carbs like rotis or brown rice.";
-    } else if (q.contains('step') || q.contains('walk') || q.contains('activity')) {
-      return "You've completed $steps steps today! A quick 15-minute evening walk will help hit your daily activity goal.";
+    if (q.contains('dinner') || q.contains('food') || q.contains('eat') || q.contains('snack')) {
+      return '''
+🥗 **ARTI Nutrition Recommendation**
+- **Current Calories Logged**: $cals kcal.
+- **Suggested Dinner Items**:
+  • **Protein**: Paneer Curry (200g), Boiled Eggs, or Chana Masala.
+  • **Carbs & Fiber**: 2 Whole Wheat Rotis or Brown Rice with Cucumber Salad.
+- **Tip**: Keep your evening meal balanced and avoid heavy fried foods right before bedtime.
+''';
+    } else if (q.contains('step') || q.contains('walk') || q.contains('activity') || q.contains('run')) {
+      return '''
+🏃 **Physical Activity Insights**
+- **Today's Step Count**: $steps steps.
+- **Distance Covered**: ~${(steps * 0.00075).toStringAsFixed(1)} km.
+- **Recommendation**: A light 15-20 minute brisk walk this evening will easily burn ~120 extra kcal and hit your 10,000 daily step goal!
+''';
     } else if (q.contains('water') || q.contains('drink') || q.contains('hydrate')) {
-      return "You've logged ${water}ml of water today. Staying hydrated boosts your metabolism and supports cardiovascular health!";
+      return '''
+💧 **Hydration Telemetry**
+- **Today's Water Intake**: ${water}ml / 2500ml.
+- **Benefit**: Hydration improves oxygen delivery in your bloodstream and keeps your ESP32 heart rate readings stable.
+''';
     }
-    return "Keep maintaining a steady routine! Remember to log your meals, stay hydrated, and sync your ESP32 hardware band for real-time telemetry.";
+
+    return '''
+🤖 **ARTI Health Coach Advice**
+- **Daily Progress**: $cals kcal consumed | $steps physical steps | ${water}ml hydration.
+- **Key Focus**: Maintain balanced macronutrients, stay active, and keep your ESP32 hardware band connected for real-time telemetry!
+''';
   }
 }

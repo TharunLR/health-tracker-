@@ -117,6 +117,29 @@ class HomeScreen extends StatelessWidget {
       body: CalzHomeScreenView(
         onSettingsTap: () => _showSettingsSheet(context),
       ),
+      floatingActionButton: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        child: FloatingActionButton.extended(
+          onPressed: () => CalzAICoachSheet.show(context),
+          backgroundColor: const Color(0xFFFF7A59),
+          elevation: 8,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+          icon: const SizedBox(
+            width: 28,
+            height: 28,
+            child: CalzMascotWidget(size: 28, showBadge: false),
+          ),
+          label: const Text(
+            'Ask ARTI AI',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: showBottomNav
           ? DashboardNavigationBar(
               currentIndex: 0,
@@ -2516,9 +2539,9 @@ class _CalzHomeScreenViewState extends State<CalzHomeScreenView> {
 
         final weekDays = _dynamicWeekDays;
 
-        return Scaffold(
-          backgroundColor: const Color(0xFFF9F9F8),
-          body: SafeArea(
+        return ColoredBox(
+          color: const Color(0xFFF9F9F8),
+          child: SafeArea(
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -2868,80 +2891,6 @@ class _CalzHomeScreenViewState extends State<CalzHomeScreenView> {
                           ),
                         ),
                       ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Calz AI Personal Health Coach Banner & Launcher
-                  GestureDetector(
-                    onTap: () => CalzAICoachSheet.show(context),
-                    child: Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF1A1A1A), Color(0xFF2C2C2C)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x33000000),
-                            blurRadius: 16,
-                            offset: Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          const SizedBox(
-                            width: 50,
-                            height: 50,
-                            child: CalzMascotWidget(size: 50, showBadge: false),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: const [
-                                Text(
-                                  '🤖 Calz AI Personal Coach',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                SizedBox(height: 4),
-                                Text(
-                                  'Tap for live insights on your steps, pulse & meal goals!',
-                                  style: TextStyle(
-                                    color: Color(0xFFBDBDBD),
-                                    fontSize: 12,
-                                    height: 1.3,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFF7A59),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: const Text(
-                              'Ask AI 💬',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
                     ),
                   ),
                   const SizedBox(height: 20),

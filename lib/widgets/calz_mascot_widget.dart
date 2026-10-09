@@ -1,179 +1,190 @@
 import 'package:flutter/material.dart';
+import 'calz_ai_coach_sheet.dart';
 
 class CalzMascotWidget extends StatelessWidget {
-  const CalzMascotWidget({super.key, this.starPoints = 0});
+  const CalzMascotWidget({
+    super.key,
+    this.starPoints = 0,
+    this.size = 180,
+    this.showBadge = true,
+    this.onTap,
+  });
 
   final int starPoints;
+  final double size;
+  final bool showBadge;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      alignment: Alignment.center,
-      clipBehavior: Clip.none,
-      children: [
-        // Mascot Bird Drawing
-        SizedBox(
-          width: 220,
-          height: 180,
-          child: CustomPaint(
-            painter: MascotPainter(),
-          ),
-        ),
-
-        // Yellow Star Badge on top right
-        Positioned(
-          top: 10,
-          right: 12,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    return GestureDetector(
+      onTap: onTap ?? () => CalzAICoachSheet.show(context),
+      child: Stack(
+        alignment: Alignment.center,
+        clipBehavior: Clip.none,
+        children: [
+          // Sleek Modern 3D AI Health Emblem & Mascot Logo
+          Container(
+            width: size,
+            height: size,
             decoration: BoxDecoration(
-              color: const Color(0xFFFFC107),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFF111111), width: 2),
-              boxShadow: const [
+              shape: BoxShape.circle,
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFF7A59), Color(0xFFFF5252), Color(0xFFFF9100)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              boxShadow: [
                 BoxShadow(
-                  color: Color(0x33000000),
-                  blurRadius: 6,
-                  offset: Offset(2, 3),
+                  color: const Color(0xFFFF7A59).withValues(alpha: 0.35),
+                  blurRadius: size * 0.2,
+                  offset: Offset(0, size * 0.08),
                 ),
               ],
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+            child: Stack(
+              alignment: Alignment.center,
               children: [
-                Text(
-                  '$starPoints',
-                  style: const TextStyle(
-                    color: Color(0xFF111111),
-                    fontWeight: FontWeight.w900,
-                    fontSize: 14,
+                // Inner Glass Ring
+                Container(
+                  width: size * 0.86,
+                  height: size * 0.86,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.35), width: 2),
+                    color: Colors.white.withValues(alpha: 0.12),
                   ),
                 ),
-                const SizedBox(width: 4),
-                const Icon(
-                  Icons.star_rounded,
-                  size: 16,
-                  color: Color(0xFF111111),
+
+                // Health Pulse Line & AI Spark Emblem
+                CustomPaint(
+                  size: Size(size * 0.65, size * 0.65),
+                  painter: _HealthLogoPainter(),
+                ),
+
+                // Mascot Eyes
+                Positioned(
+                  top: size * 0.28,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildEye(size),
+                      SizedBox(width: size * 0.12),
+                      _buildEye(size),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
+
+          // Star Points Badge on top right
+          if (showBadge)
+            Positioned(
+              top: -4,
+              right: -4,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFC107),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFF111111), width: 2),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x33000000),
+                      blurRadius: 6,
+                      offset: Offset(2, 3),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '$starPoints',
+                      style: const TextStyle(
+                        color: Color(0xFF111111),
+                        fontWeight: FontWeight.w900,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(width: 3),
+                    const Icon(
+                      Icons.star_rounded,
+                      size: 15,
+                      color: Color(0xFF111111),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEye(double parentSize) {
+    return Container(
+      width: parentSize * 0.08,
+      height: parentSize * 0.11,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular( parentSize * 0.05),
+      ),
+      child: Center(
+        child: Container(
+          width: parentSize * 0.04,
+          height: parentSize * 0.06,
+          decoration: const BoxDecoration(
+            color: Color(0xFF111111),
+            shape: BoxShape.circle,
+          ),
         ),
-      ],
+      ),
     );
   }
 }
 
-class MascotPainter extends CustomPainter {
+class _HealthLogoPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final strokePaint = Paint()
-      ..color = const Color(0xFF111111)
+      ..color = Colors.white
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.5
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
-    final fillPaint = Paint()
-      ..color = Colors.white
+    final sparkPaint = Paint()
+      ..color = const Color(0xFFFFD54F)
       ..style = PaintingStyle.fill;
 
-    final blackFill = Paint()
-      ..color = const Color(0xFF111111)
-      ..style = PaintingStyle.fill;
+    // Heart Pulse Line
+    final path = Path();
+    path.moveTo(0, size.height * 0.60);
+    path.lineTo(size.width * 0.25, size.height * 0.60);
+    path.lineTo(size.width * 0.38, size.height * 0.35);
+    path.lineTo(size.width * 0.52, size.height * 0.85);
+    path.lineTo(size.width * 0.68, size.height * 0.45);
+    path.lineTo(size.width * 0.78, size.height * 0.60);
+    path.lineTo(size.width, size.height * 0.60);
 
-    // Body
-    final bodyPath = Path();
-    bodyPath.moveTo(size.width * 0.5, size.height * 0.15);
-    // Head top curve
-    bodyPath.cubicTo(
-      size.width * 0.25, size.height * 0.15,
-      size.width * 0.20, size.height * 0.45,
-      size.width * 0.18, size.height * 0.60,
-    );
-    // Left wing
-    bodyPath.cubicTo(
-      size.width * 0.05, size.height * 0.65,
-      size.width * 0.05, size.height * 0.78,
-      size.width * 0.22, size.height * 0.78,
-    );
-    // Bottom belly
-    bodyPath.cubicTo(
-      size.width * 0.35, size.height * 0.92,
-      size.width * 0.65, size.height * 0.92,
-      size.width * 0.78, size.height * 0.78,
-    );
-    // Right wing
-    bodyPath.cubicTo(
-      size.width * 0.95, size.height * 0.78,
-      size.width * 0.95, size.height * 0.65,
-      size.width * 0.82, size.height * 0.60,
-    );
-    // Head right curve
-    bodyPath.cubicTo(
-      size.width * 0.80, size.height * 0.45,
-      size.width * 0.75, size.height * 0.15,
-      size.width * 0.5, size.height * 0.15,
-    );
+    canvas.drawPath(path, strokePaint);
 
-    canvas.drawPath(bodyPath, fillPaint);
-    canvas.drawPath(bodyPath, strokePaint);
+    // AI Spark Star (Top Right)
+    final spark = Path();
+    final cx = size.width * 0.80;
+    final cy = size.height * 0.25;
+    final r = size.width * 0.12;
 
-    // Left Eye
-    canvas.drawOval(
-      Rect.fromLTWH(size.width * 0.38, size.height * 0.35, 10, 14),
-      blackFill,
-    );
-    // Right Eye
-    canvas.drawOval(
-      Rect.fromLTWH(size.width * 0.56, size.height * 0.35, 10, 14),
-      blackFill,
-    );
+    spark.moveTo(cx, cy - r);
+    spark.quadraticBezierTo(cx, cy, cx + r, cy);
+    spark.quadraticBezierTo(cx, cy, cx, cy + r);
+    spark.quadraticBezierTo(cx, cy, cx - r, cy);
+    spark.quadraticBezierTo(cx, cy, cx, cy - r);
+    spark.close();
 
-    // Eyebrows
-    final brow1 = Path()
-      ..moveTo(size.width * 0.36, size.height * 0.30)
-      ..quadraticBezierTo(
-        size.width * 0.40, size.height * 0.25,
-        size.width * 0.44, size.height * 0.31,
-      );
-    final brow2 = Path()
-      ..moveTo(size.width * 0.54, size.height * 0.31)
-      ..quadraticBezierTo(
-        size.width * 0.58, size.height * 0.25,
-        size.width * 0.62, size.height * 0.30,
-      );
-    canvas.drawPath(brow1, strokePaint..strokeWidth = 3);
-    canvas.drawPath(brow2, strokePaint..strokeWidth = 3);
-
-    // Beak
-    final beak = Path()
-      ..moveTo(size.width * 0.44, size.height * 0.42)
-      ..lineTo(size.width * 0.54, size.height * 0.42)
-      ..lineTo(size.width * 0.49, size.height * 0.52)
-      ..close();
-    canvas.drawPath(beak, blackFill);
-
-    // Feet
-    final foot1 = Path()
-      ..addOval(Rect.fromLTWH(size.width * 0.34, size.height * 0.86, 22, 10));
-    final foot2 = Path()
-      ..addOval(Rect.fromLTWH(size.width * 0.54, size.height * 0.86, 22, 10));
-    canvas.drawPath(foot1, blackFill);
-    canvas.drawPath(foot2, blackFill);
-
-    // Fork held by left wing
-    final forkPath = Path();
-    forkPath.moveTo(size.width * 0.12, size.height * 0.68);
-    forkPath.lineTo(size.width * 0.32, size.height * 0.55);
-
-    // Prongs
-    forkPath.moveTo(size.width * 0.10, size.height * 0.64);
-    forkPath.lineTo(size.width * 0.15, size.height * 0.72);
-    forkPath.moveTo(size.width * 0.08, size.height * 0.67);
-    forkPath.lineTo(size.width * 0.13, size.height * 0.75);
-
-    canvas.drawPath(forkPath, strokePaint..strokeWidth = 3.5);
+    canvas.drawPath(spark, sparkPaint);
   }
 
   @override

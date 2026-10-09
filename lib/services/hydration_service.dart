@@ -37,6 +37,22 @@ class HydrationService {
     return _controller.stream;
   }
 
+  HydrationSnapshot get currentSnapshot {
+    _ensureStarted();
+    final now = DateTime.now();
+    final todayKey = _dateKey(now);
+    final todayLiters = _dailyTotals[todayKey] ?? 0;
+    final lastSeven = _computeLastSevenDays(now);
+    final sum = lastSeven.fold<double>(0, (total, value) => total + value);
+    final average = lastSeven.isEmpty ? 0.0 : sum / lastSeven.length;
+    return HydrationSnapshot(
+      todayLiters: todayLiters,
+      goalLiters: _goalLiters,
+      weeklyAverageLiters: average,
+      lastUpdated: now,
+    );
+  }
+
   Future<void> addWater(double liters) async {
     await _ensureStarted();
     if (liters <= 0) {

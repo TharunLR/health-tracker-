@@ -19,6 +19,8 @@ import '../services/workout_service.dart';
 import '../widgets/calz_mascot_widget.dart';
 import '../widgets/weekly_steps_graph_card.dart';
 import '../widgets/health_band_card.dart';
+import '../widgets/calz_ai_coach_sheet.dart';
+import '../widgets/gamified_badges_card.dart';
 import 'food_scanner_screen.dart';
 
 const List<BoxShadow> _softCardShadow = [
@@ -2868,6 +2870,84 @@ class _CalzHomeScreenViewState extends State<CalzHomeScreenView> {
                       ],
                     ),
                   ),
+                  const SizedBox(height: 20),
+
+                  // Calz AI Personal Health Coach Banner & Launcher
+                  GestureDetector(
+                    onTap: () => CalzAICoachSheet.show(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF1A1A1A), Color(0xFF2C2C2C)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x33000000),
+                            blurRadius: 16,
+                            offset: Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          const SizedBox(
+                            width: 50,
+                            height: 50,
+                            child: CalzMascotWidget(size: 50, showBadge: false),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: const [
+                                Text(
+                                  '🤖 Calz AI Personal Coach',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  'Tap for live insights on your steps, pulse & meal goals!',
+                                  style: TextStyle(
+                                    color: Color(0xFFBDBDBD),
+                                    fontSize: 12,
+                                    height: 1.3,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFF7A59),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: const Text(
+                              'Ask AI 💬',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Gamified Badges & Active Streaks Card
+                  const GamifiedBadgesCard(),
                   const SizedBox(height: 24),
 
                   // 8. Action Row: "Logged: X" Pill + Floating Food Emojis Scanner Button

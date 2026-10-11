@@ -76,6 +76,7 @@ class IndianMealResult {
     required this.success,
     required this.totals,
     required this.items,
+    this.isFood = true,
     this.scaleReference,
     this.referenceObject,
     this.disclaimer,
@@ -83,6 +84,7 @@ class IndianMealResult {
   });
 
   final bool success;
+  final bool isFood;
   final IndianMealTotals totals;
   final List<IndianMealItem> items;
   final String? scaleReference;
@@ -91,6 +93,27 @@ class IndianMealResult {
   final String? error;
 
   factory IndianMealResult.fromMap(Map<String, dynamic> data) {
+    final bool isFood = data['is_food'] != false && data['isFood'] != false;
+    final String? parsedError = data['error']?.toString();
+
+    if (!isFood) {
+      return IndianMealResult(
+        success: false,
+        isFood: false,
+        totals: const IndianMealTotals(
+          totalCaloriesKcal: 0,
+          totalProteinG: 0,
+          totalCarbsG: 0,
+          totalFatG: 0,
+        ),
+        items: const [],
+        scaleReference: data['scale_reference']?.toString(),
+        referenceObject: data['reference_object']?.toString(),
+        disclaimer: data['disclaimer']?.toString(),
+        error: parsedError ?? 'No food detected in this image. Please take or upload a clear photo of your meal.',
+      );
+    }
+
     final rawItems = data['items'] as List? ?? [];
     final itemsList = rawItems
         .whereType<Map>()
@@ -113,8 +136,11 @@ class IndianMealResult {
       }
     }
 
+    final bool isSuccess = (data['success'] == true || itemsList.isNotEmpty) && (calcKcal > 0 || itemsList.isNotEmpty);
+
     return IndianMealResult(
-      success: data['success'] == true || itemsList.isNotEmpty,
+      success: isSuccess,
+      isFood: isFood,
       totals: IndianMealTotals(
         totalCaloriesKcal: calcKcal,
         totalProteinG: calcProtein,
@@ -125,7 +151,7 @@ class IndianMealResult {
       scaleReference: data['scale_reference']?.toString(),
       referenceObject: data['reference_object']?.toString(),
       disclaimer: data['disclaimer']?.toString(),
-      error: data['error']?.toString(),
+      error: parsedError,
     );
   }
 }

@@ -2464,16 +2464,26 @@ class _CalzHomeScreenViewState extends State<CalzHomeScreenView> {
     _selectedDayIndex = _now.weekday % 7;
   }
 
-  List<Map<String, dynamic>> get _dynamicWeekDays {
+  List<Map<String, dynamic>> _buildDynamicWeekDays(List<FoodLogEntry> entries) {
     final sunday = _now.subtract(Duration(days: _now.weekday % 7));
     const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
     final todayIndex = _now.weekday % 7;
 
     return List.generate(7, (index) {
-      final dayDate = sunday.add(Duration(days: index));
+      final dayDate = DateTime(sunday.year, sunday.month, sunday.day).add(Duration(days: index));
+      var dayCals = 0.0;
+      for (final e in entries) {
+        if (e.timestamp.year == dayDate.year &&
+            e.timestamp.month == dayDate.month &&
+            e.timestamp.day == dayDate.day) {
+          dayCals += e.calories ?? 0.0;
+        }
+      }
       return {
         'day': dayNames[index],
         'num': dayDate.day.toString(),
+        'date': dayDate,
+        'calories': dayCals.toInt(),
         'target': '2327',
         'active': index == _selectedDayIndex,
         'isToday': index == todayIndex,
@@ -2516,20 +2526,31 @@ class _CalzHomeScreenViewState extends State<CalzHomeScreenView> {
   Widget build(BuildContext context) {
     return StreamBuilder<List<FoodLogEntry>>(
       stream: FoodLogService.instance.entriesStream,
+      initialData: FoodLogService.instance.currentEntries,
       builder: (context, snapshot) {
         final entries = snapshot.data ?? const [];
+        final sunday = _now.subtract(Duration(days: _now.weekday % 7));
+        final selectedDate = DateTime(sunday.year, sunday.month, sunday.day).add(Duration(days: _selectedDayIndex));
+        final isViewingToday = _selectedDayIndex == (_now.weekday % 7);
+
+        // Filter calories and macros strictly for the selected day (tracks that day only, matching steps tracking!)
+        final dayEntries = entries.where((e) =>
+          e.timestamp.year == selectedDate.year &&
+          e.timestamp.month == selectedDate.month &&
+          e.timestamp.day == selectedDate.day
+        ).toList();
+
         var totalCalories = 0.0;
         var totalCarbs = 0.0;
         var totalProtein = 0.0;
         var totalFat = 0.0;
 
-        for (final entry in entries) {
-          if (entry.calories != null) {
-            totalCalories += entry.calories!;
-            totalProtein += (entry.calories! * 0.25) / 4.0;
-            totalCarbs += (entry.calories! * 0.50) / 4.0;
-            totalFat += (entry.calories! * 0.25) / 9.0;
-          }
+        for (final entry in dayEntries) {
+          final cal = entry.calories ?? 0.0;
+          totalCalories += cal;
+          totalProtein += entry.proteinG ?? ((cal * 0.25) / 4.0);
+          totalCarbs += entry.carbsG ?? ((cal * 0.50) / 4.0);
+          totalFat += entry.fatG ?? ((cal * 0.25) / 9.0);
         }
 
         const calorieTarget = 2327;
@@ -2537,7 +2558,7 @@ class _CalzHomeScreenViewState extends State<CalzHomeScreenView> {
         const proteinTarget = 175;
         const fatTarget = 142;
 
-        final weekDays = _dynamicWeekDays;
+        final weekDays = _buildDynamicWeekDays(entries);
 
         return ColoredBox(
           color: const Color(0xFFF9F9F8),
@@ -2555,7 +2576,7 @@ class _CalzHomeScreenViewState extends State<CalzHomeScreenView> {
                       Column(
                         children: [
                           Text(
-                            "${_monthName(_now.month)} '${_now.year.toString().substring(2)}",
+                            "${_monthName(selectedDate.month)} '${selectedDate.year.toString().substring(2)}",
                             style: const TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.w800,
@@ -2564,7 +2585,7 @@ class _CalzHomeScreenViewState extends State<CalzHomeScreenView> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            _fullDayName(_now.weekday),
+                            isViewingToday ? 'Today' : _fullDayName(selectedDate.weekday),
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -2914,7 +2935,7 @@ class _CalzHomeScreenViewState extends State<CalzHomeScreenView> {
                             const Text('🍎', style: TextStyle(fontSize: 18)),
                             const SizedBox(width: 8),
                             Text(
-                              'Logged: ${entries.length}',
+                              'Logged: ${dayEntries.length}',
                               style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w800,

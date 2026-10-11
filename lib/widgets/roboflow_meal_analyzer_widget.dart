@@ -80,10 +80,12 @@ class _RoboflowMealAnalyzerWidgetState extends State<RoboflowMealAnalyzerWidget>
 
     setState(() {
       _isLoading = false;
-      if (result.success) {
+      if (result.success && result.isFood) {
         _nutritionResult = result;
+        _errorMessage = null;
       } else {
-        _errorMessage = result.error ?? 'Failed to parse meal nutrition data.';
+        _nutritionResult = null;
+        _errorMessage = result.error ?? 'No food detected in this image. Please take or upload a clear photo of your meal.';
       }
     });
   }
@@ -122,10 +124,12 @@ class _RoboflowMealAnalyzerWidgetState extends State<RoboflowMealAnalyzerWidget>
 
     setState(() {
       _isLoading = false;
-      if (result.success) {
+      if (result.success && result.isFood) {
         _nutritionResult = result;
+        _errorMessage = null;
       } else {
-        _errorMessage = result.error ?? 'Failed to parse meal nutrition data.';
+        _nutritionResult = null;
+        _errorMessage = result.error ?? 'No food detected in this image. Please take or upload a clear photo of your meal.';
       }
     });
   }
@@ -461,25 +465,52 @@ class _RoboflowMealAnalyzerWidgetState extends State<RoboflowMealAnalyzerWidget>
           // Error Display
           if (_errorMessage != null) ...[
             Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFF0F0),
+                color: const Color(0xFFFFF4EE),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFFFCDD2)),
+                border: Border.all(color: const Color(0xFFFFCCBC), width: 1.2),
               ),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.error_outline_rounded, color: Color(0xFFD32F2F)),
-                  const SizedBox(width: 12),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF7A59).withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.no_meals_rounded, color: Color(0xFFFF7A59), size: 24),
+                  ),
+                  const SizedBox(width: 14),
                   Expanded(
-                    child: Text(
-                      _errorMessage!,
-                      style: const TextStyle(color: Color(0xFFB71C1C), fontSize: 13),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'No Food Detected',
+                          style: TextStyle(
+                            color: Color(0xFF111111),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _errorMessage!,
+                          style: const TextStyle(
+                            color: Color(0xFF5D4037),
+                            fontSize: 13,
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
+            const SizedBox(height: 16),
           ],
 
           // Nutrition Results Display

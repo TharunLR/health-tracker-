@@ -97,9 +97,9 @@ class RoboflowNutritionService {
 
     final candidateModels = [
       'gemini-3.5-flash',
-      'gemini-3.6-flash',
-      'gemini-3-flash-preview',
+      'gemini-3.8-flash',
       'gemini-3.5-flash-lite',
+      'gemini-3.7-flash',
     ];
 
     final weightStr = sanitizedGrams != null && sanitizedGrams > 0
@@ -174,6 +174,15 @@ Respond STRICTLY with a valid JSON object adhering to this schema:
                   final jsonPayload =
                       jsonDecode(text.substring(start, end + 1)) as Map<String, dynamic>;
                   final result = IndianMealResult.fromMap(jsonPayload);
+                  if (!result.isFood || !result.success) {
+                    return result;
+                  }
+                  if (!result.isFood || !result.success) {
+                    return result;
+                  }
+                  if (!result.isFood || !result.success) {
+                    return result;
+                  }
                   if (result.items.isNotEmpty || result.totals.totalCaloriesKcal > 0) {
                     return result;
                   }
@@ -222,9 +231,9 @@ Respond STRICTLY with a valid JSON object adhering to this schema:
     final apiKey = SecurityUtils.geminiApiKey;
     final candidateModels = [
       'gemini-3.5-flash',
-      'gemini-3.6-flash',
-      'gemini-3-flash-preview',
+      'gemini-3.8-flash',
       'gemini-3.5-flash-lite',
+      'gemini-3.7-flash',
     ];
 
     for (final model in candidateModels) {
@@ -242,9 +251,21 @@ Respond STRICTLY with a valid JSON object adhering to this schema:
                 'parts': [
                   {
                     'text': '''
-Identify the food dish in this image and estimate accurate weight (in grams), calories, and macronutrients.
-Respond STRICTLY with a valid JSON object adhering to this schema:
+Carefully inspect this image as an AI nutritional assistant.
+Step 1: Check if the image contains edible food, cooked dishes, fruits, vegetables, snacks, or drinks.
+If the image DOES NOT contain food (for example, if it shows people, faces, crowds, selfies, clothing, buildings, animals, cars, paper/documents, electronic devices, furniture, or non-food objects):
+You MUST respond STRICTLY in JSON:
 {
+  "is_food": false,
+  "success": false,
+  "error": "No food detected in this image. Please take or upload a clear photo of your meal or food dish."
+}
+
+Step 2: If the image DOES contain genuine edible food:
+Identify all visible food items, estimate reasonable portion weights in grams, calories, and macronutrients (protein, carbs, fat in grams).
+Respond STRICTLY with valid JSON:
+{
+  "is_food": true,
   "success": true,
   "totals": {
     "total_calories_kcal": 420.0,
@@ -255,13 +276,13 @@ Respond STRICTLY with a valid JSON object adhering to this schema:
   "items": [
     {
       "name": "Food item name",
-      "estimated_weight_g": 300.0,
+      "estimated_weight_g": 250.0,
       "calories_kcal": 420.0,
       "protein_g": 22.0,
       "carbs_g": 54.0,
       "fat_g": 12.0,
-      "category": "Main Meal",
-      "notes": "Estimated 300g portion"
+      "category": "Main Dish",
+      "notes": "Estimated portion"
     }
   ],
   "disclaimer": "AI Vision estimated portion & nutrition."
@@ -312,28 +333,18 @@ Respond STRICTLY with a valid JSON object adhering to this schema:
       }
     }
 
-    // Smart fallback nutrition estimation if remote model APIs fail or offline
+    // Never return fake food fallback for non-food or failed scans!
     return const IndianMealResult(
-      success: true,
+      success: false,
+      isFood: false,
       totals: IndianMealTotals(
-        totalCaloriesKcal: 380,
-        totalProteinG: 18,
-        totalCarbsG: 48,
-        totalFatG: 12,
+        totalCaloriesKcal: 0,
+        totalProteinG: 0,
+        totalCarbsG: 0,
+        totalFatG: 0,
       ),
-      items: [
-        IndianMealItem(
-          name: 'Healthy Mixed Meal',
-          portionGrams: 280,
-          caloriesKcal: 380,
-          proteinG: 18,
-          carbG: 48,
-          fatG: 12,
-          category: 'Main Dish',
-          notes: 'Estimated portion from scanned meal image',
-        ),
-      ],
-      disclaimer: 'AI portion estimation applied.',
+      items: [],
+      error: 'Unable to detect food in this image. Please take a clear, well-lit photo of your meal or use the text entry option.',
     );
   }
 }

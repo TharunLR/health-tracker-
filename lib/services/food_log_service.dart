@@ -93,6 +93,46 @@ class FoodLogService {
     return getCaloriesForDate(DateTime.now());
   }
 
+  List<FoodLogEntry> getEntriesForDate(DateTime date) {
+    _ensureLoaded();
+    return _entries.where((entry) =>
+      entry.timestamp.year == date.year &&
+      entry.timestamp.month == date.month &&
+      entry.timestamp.day == date.day
+    ).toList();
+  }
+
+  List<FoodLogEntry> getTodayEntries() {
+    return getEntriesForDate(DateTime.now());
+  }
+
+  Map<String, double> getMacrosForDate(DateTime date) {
+    final dayEntries = getEntriesForDate(date);
+    double cals = 0;
+    double protein = 0;
+    double carbs = 0;
+    double fat = 0;
+
+    for (final entry in dayEntries) {
+      final c = entry.calories ?? 0;
+      cals += c;
+      protein += entry.proteinG ?? (c * 0.25 / 4.0);
+      carbs += entry.carbsG ?? (c * 0.50 / 4.0);
+      fat += entry.fatG ?? (c * 0.25 / 9.0);
+    }
+
+    return {
+      'calories': cals,
+      'protein': protein,
+      'carbs': carbs,
+      'fat': fat,
+    };
+  }
+
+  Map<String, double> getTodayMacros() {
+    return getMacrosForDate(DateTime.now());
+  }
+
   double getCaloriesForDate(DateTime date) {
     _ensureLoaded();
     double total = 0;
